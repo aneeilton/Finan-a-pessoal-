@@ -1,6 +1,11 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+// Sem tela de login por enquanto: se não houver sessão, cria uma sessão
+// anônima automaticamente. Os dados continuam isolados por usuário (RLS),
+// só que o "usuário" é criado nos bastidores em vez de pedir cadastro.
+// Exige "Allow anonymous sign-ins" habilitado em Authentication > Settings
+// no painel do Supabase.
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } });
 
@@ -28,18 +33,8 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isLoginRoute = request.nextUrl.pathname.startsWith("/login");
-
-  if (!user && !isLoginRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
-  }
-
-  if (user && isLoginRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
+  if (!user) {
+    await supabase.auth.signInAnonymously();
   }
 
   return response;

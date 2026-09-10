@@ -8,7 +8,13 @@
  * Variaveis de ambiente necessarias (.env.local):
  *   NEXT_PUBLIC_SUPABASE_URL
  *   SUPABASE_SERVICE_ROLE_KEY   (Project Settings -> API -> service_role, NUNCA no browser)
- *   IMPORT_USER_EMAIL           (usuario dono dos dados; precisa ja existir no Supabase Auth)
+ *   IMPORT_USER_ID              (uuid do usuario dono dos dados)
+ *
+ * Como o app nao tem mais tela de login (sessao anonima automatica), pegue o
+ * IMPORT_USER_ID assim: abra o app uma vez no navegador para criar sua sessao,
+ * depois em Supabase -> Authentication -> Users copie o UUID do usuario
+ * "Anonymous". Se o projeto ainda usar contas com e-mail/senha, informe
+ * IMPORT_USER_EMAIL em vez de IMPORT_USER_ID.
  *
  * O segundo argumento opcional define para qual mes (YYYY-MM) o indice 0 dos
  * arrays "v" do backup antigo deve apontar. Os indices seguintes (1, 2, 3...)
@@ -58,10 +64,11 @@ async function main() {
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const userIdEnv = process.env.IMPORT_USER_ID;
   const email = process.env.IMPORT_USER_EMAIL;
-  if (!url || !serviceKey || !email) {
+  if (!url || !serviceKey || (!userIdEnv && !email)) {
     console.error(
-      "Defina NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY e IMPORT_USER_EMAIL em .env.local"
+      "Defina NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY e IMPORT_USER_ID (ou IMPORT_USER_EMAIL) em .env.local"
     );
     process.exit(1);
   }
@@ -69,8 +76,8 @@ async function main() {
   const backup: Backup = JSON.parse(readFileSync(filePath, "utf-8"));
   const supabase = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
-  const userId = await findUserIdByEmail(supabase, email);
-  console.log(`Importando para o usuario ${email} (${userId})`);
+  const userId = userIdEnv ?? (await findUserIdByEmail(supabase, email!));
+  console.log(`Importando para o usuario ${userId}`);
 
   const now = anchorArg ? new Date(`${anchorArg}-01T00:00:00`) : new Date();
   const anchorYear = now.getFullYear();
@@ -210,9 +217,7 @@ async function findUserIdByEmail(
     if (data.users.length < 200) break;
     page += 1;
   }
-  throw new Error(
-    `Usuario ${email} nao encontrado no Supabase Auth. Crie a conta pelo app (tela de login) antes de importar.`
-  );
+  throw new Error(`Usuario ${email} nao encontrado no Supabase Auth.`);
 }
 
 main().catch((err) => {

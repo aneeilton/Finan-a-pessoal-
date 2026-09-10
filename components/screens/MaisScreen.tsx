@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { TopHeader } from "@/components/TopHeader";
 import { Card } from "@/components/ui/Card";
@@ -13,15 +12,8 @@ const LINKS = [
   { href: "/fixas", label: "Contas fixas", emoji: "🧺", hint: "Aluguel, escola, internet..." },
 ];
 
-export function MaisScreen({
-  email,
-  initialVariaveis,
-}: {
-  email: string;
-  initialVariaveis: number;
-}) {
+export function MaisScreen({ initialVariaveis }: { initialVariaveis: number }) {
   const supabase = createClient();
-  const router = useRouter();
   const [variaveis, setVariaveis] = useState(String(initialVariaveis || ""));
   const [savingVar, setSavingVar] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -39,15 +31,9 @@ export function MaisScreen({
     setSaved(true);
   }
 
-  async function logout() {
-    await supabase.auth.signOut();
-    router.replace("/login");
-    router.refresh();
-  }
-
   return (
     <div>
-      <TopHeader emoji="✨" title="Mais" subtitle={email} />
+      <TopHeader emoji="✨" title="Mais" subtitle="Configurações e categorias" />
 
       <div className="space-y-4 px-4 pt-4">
         <div className="grid grid-cols-1 gap-2">
@@ -91,13 +77,6 @@ export function MaisScreen({
           </div>
           {saved && <p className="mt-2 text-xs font-semibold text-brand-600">Salvo!</p>}
         </Card>
-
-        <button
-          onClick={logout}
-          className="w-full rounded-2xl border-2 border-coral-500/30 py-3 text-sm font-bold text-coral-500"
-        >
-          Sair da conta
-        </button>
       </div>
     </div>
   );

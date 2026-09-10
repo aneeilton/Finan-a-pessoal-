@@ -13,9 +13,11 @@ Veja `ANALYSIS.md` para a análise do app anterior e as decisões de design.
    Isso cria as tabelas (`contas`, `dividas`, `bens`, `items`, `lancamentos`,
    `config`), ativa Row Level Security e garante que cada usuário só acesse os
    próprios dados.
-3. Em **Authentication → Providers**, deixe **Email** habilitado (padrão). Se
-   quiser liberar login sem confirmação de e-mail durante os testes, desative
-   "Confirm email" em **Authentication → Settings**.
+3. Em **Authentication → Settings**, habilite **Allow anonymous sign-ins**.
+   O app ainda não tem tela de login: ao abrir, ele cria uma sessão anônima
+   automaticamente (o middleware faz isso), e os dados ficam isolados por essa
+   sessão graças ao RLS. Quando quiser login de verdade (e-mail/senha ou
+   social), é só reativar o fluxo de auth — o schema já está pronto pra isso.
 4. Em **Project Settings → API**, copie:
    - `Project URL` → `NEXT_PUBLIC_SUPABASE_URL`
    - `anon public` key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
@@ -32,17 +34,18 @@ npm install
 npm run dev
 ```
 
-Abra http://localhost:3000, crie sua conta na tela de login (mesmo e-mail que
-você vai usar para importar o backup) e navegue pelo app.
+Abra http://localhost:3000 — o app já entra direto (sem tela de login),
+criando uma sessão anônima na hora.
 
 ## 3. Importar o backup antigo (opcional)
 
-Depois de criar sua conta pelo app (passo acima), preencha também no
-`.env.local`:
+Depois de abrir o app uma vez (passo acima, isso cria seu usuário anônimo),
+pegue o UUID dele em Supabase → **Authentication → Users** (o usuário do tipo
+"Anonymous") e preencha também no `.env.local`:
 
 ```
 SUPABASE_SERVICE_ROLE_KEY=...
-IMPORT_USER_EMAIL=seu-email@exemplo.com
+IMPORT_USER_ID=uuid-copiado-do-supabase
 ```
 
 Então rode:
@@ -72,8 +75,7 @@ argumento, ex.: `npm run import-backup -- backup.json 2026-04`.
 ## Estrutura
 
 ```
-app/(app)/            telas autenticadas (dashboard, contas, cartões, ...)
-app/login/            tela de login/cadastro
+app/(app)/            telas do app (dashboard, contas, cartões, ...)
 components/screens/   componentes de cada tela
 lib/supabase/         clients Supabase (browser e server)
 supabase/migrations/  schema SQL

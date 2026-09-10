@@ -12,5 +12,5 @@ export default async function MaisPage() {
     .eq("user_id", user?.id)
     .maybeSingle();
 
-  return <MaisScreen email={user?.email ?? ""} initialVariaveis={Number(config?.variaveis ?? 0)} />;
+  return <MaisScreen initialVariaveis={Number(config?.variaveis ?? 0)} />;
 }
