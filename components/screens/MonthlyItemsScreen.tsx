@@ -1,0 +1,314 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { TopHeader } from "@/components/TopHeader";
+import { Card, EmptyState } from "@/components/ui/Card";
+import { currentCompetencia, formatMoney, monthLabel, shiftCompetencia } from "@/lib/format";
+import type { Item, ItemTipo, Lancamento } from "@/lib/types";
+
+type Tone = "brand" | "sky" | "sun" | "coral" | "grape";
+
+const TONE_CLASSES: Record<Tone, { chip: string; value: string; dash: string }> = {
+  brand: { chip: "bg-brand-100 text-brand-700", value: "text-brand-700", dash: "border-brand-300 text-brand-600" },
+  sky: { chip: "bg-sky-500/10 text-sky-500", value: "text-sky-500", dash: "border-sky-400 text-sky-500" },
+  sun: { chip: "bg-sun-500/10 text-sun-500", value: "text-sun-500", dash: "border-sun-400 text-sun-500" },
+  coral: { chip: "bg-coral-500/10 text-coral-500", value: "text-coral-500", dash: "border-coral-400 text-coral-500" },
+  grape: { chip: "bg-grape-500/10 text-grape-500", value: "text-grape-500", dash: "border-grape-400 text-grape-500" },
+};
+
+export function MonthlyItemsScreen({
+  tipo,
+  title,
+  emoji,
+  tone,
+  valueDoneLabel,
+  showDia,
+  showExpectativa,
+  initialItems,
+  initialLancamentos,
+}: {
+  tipo: ItemTipo;
+  title: string;
+  emoji: string;
+  tone: Tone;
+  valueDoneLabel: string;
+  showDia: boolean;
+  showExpectativa: boolean;
+  initialItems: Item[];
+  initialLancamentos: Lancamento[];
+}) {
+  const supabase = createClient();
+  const tones = TONE_CLASSES[tone];
+  const [items, setItems] = useState(initialItems);
+  const [competencia, setCompetencia] = useState(currentCompetencia());
+  const [lancamentos, setLancamentos] = useState<Record<string, Lancamento>>(
+    Object.fromEntries(initialLancamentos.map((l) => [l.item_id, l]))
+  );
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [nome, setNome] = useState("");
+  const [dia, setDia] = useState("");
+  const [expectativa, setExpectativa] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      const { data } = await supabase
+        .from("lancamentos")
+        .select("*")
+        .eq("competencia", competencia)
+        .in("item_id", items.map((i) => i.id).length ? items.map((i) => i.id) : ["00000000-0000-0000-0000-000000000000"]);
+      if (!cancelled) {
+        setLancamentos(Object.fromEntries((data ?? []).map((l) => [l.item_id, l as Lancamento])));
+        setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [competencia]);
+
+  const total = useMemo(
+    () => Object.values(lancamentos).reduce((s, l) => s + Number(l.valor), 0),
+    [lancamentos]
+  );
+
+  async function addItem(e: React.FormEvent) {
+    e.preventDefault();
+    if (!nome.trim()) return;
+    setSaving(true);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const { data, error } = await supabase
+      .from("items")
+      .insert({
+        user_id: user!.id,
+        tipo,
+        nome: nome.trim(),
+        dia_vencimento: showDia && dia ? Number(dia) : null,
+        expectativa: showExpectativa ? expectativa : false,
+      })
+      .select()
+      .single();
+    setSaving(false);
+    if (!error && data) {
+      setItems((prev) => [...prev, data as Item]);
+      setNome("");
+      setDia("");
+      setExpectativa(false);
+      setOpen(false);
+    }
+  }
+
+  async function removeItem(id: string) {
+    setItems((prev) => prev.filter((i) => i.id !== id));
+    await supabase.from("items").delete().eq("id", id);
+  }
+
+  async function saveValor(item: Item, valor: number) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const existing = lancamentos[item.id];
+    const { data, error } = await supabase
+      .from("lancamentos")
+      .upsert(
+        {
+          id: existing?.id,
+          item_id: item.id,
+          user_id: user!.id,
+          competencia,
+          valor,
+          pago: existing?.pago ?? false,
+        },
+        { onConflict: "item_id,competencia" }
+      )
+      .select()
+      .single();
+    if (!error && data) {
+      setLancamentos((prev) => ({ ...prev, [item.id]: data as Lancamento }));
+    }
+  }
+
+  async function togglePago(item: Item) {
+    const existing = lancamentos[item.id];
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const { data, error } = await supabase
+      .from("lancamentos")
+      .upsert(
+        {
+          id: existing?.id,
+          item_id: item.id,
+          user_id: user!.id,
+          competencia,
+          valor: existing?.valor ?? 0,
+          pago: !(existing?.pago ?? false),
+        },
+        { onConflict: "item_id,competencia" }
+      )
+      .select()
+      .single();
+    if (!error && data) {
+      setLancamentos((prev) => ({ ...prev, [item.id]: data as Lancamento }));
+    }
+  }
+
+  return (
+    <div>
+      <TopHeader
+        emoji={emoji}
+        title={title}
+        subtitle={`Total em ${monthLabel(competencia)} · ${formatMoney(total)}`}
+      />
+
+      <div className="space-y-4 px-4 pt-4">
+        <div className="flex items-center justify-between rounded-2xl bg-white px-3 py-2 shadow-card">
+          <button
+            onClick={() => setCompetencia((c) => shiftCompetencia(c, -1))}
+            className="h-8 w-8 rounded-xl bg-ink-50 text-ink-500"
+            aria-label="Mês anterior"
+          >
+            ‹
+          </button>
+          <span className="text-sm font-bold capitalize text-ink-800">
+            {new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(
+              new Date(competencia)
+            )}
+          </span>
+          <button
+            onClick={() => setCompetencia((c) => shiftCompetencia(c, 1))}
+            className="h-8 w-8 rounded-xl bg-ink-50 text-ink-500"
+            aria-label="Próximo mês"
+          >
+            ›
+          </button>
+        </div>
+
+        {items.length === 0 ? (
+          <EmptyState emoji={emoji} title="Nada por aqui ainda" hint="Adicione o primeiro item" />
+        ) : (
+          <div className={`space-y-2 ${loading ? "opacity-60" : ""}`}>
+            {items.map((item) => {
+              const lanc = lancamentos[item.id];
+              return (
+                <Card key={item.id}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-ink-800">{item.nome}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        {showDia && item.dia_vencimento && (
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${tones.chip}`}>
+                            Vence dia {item.dia_vencimento}
+                          </span>
+                        )}
+                        {showExpectativa && item.expectativa && (
+                          <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[10px] font-bold text-ink-500">
+                            Expectativa
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => removeItem(item.id)}
+                      className="shrink-0 text-ink-400 hover:text-coral-500"
+                      aria-label="Remover"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="mt-3 flex items-center gap-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      defaultValue={lanc ? Number(lanc.valor) : ""}
+                      key={`${item.id}-${competencia}`}
+                      placeholder="0,00"
+                      onBlur={(e) => saveValor(item, Number(e.target.value || 0))}
+                      className={`w-full rounded-xl border border-ink-100 bg-ink-50 px-3 py-2 text-sm font-bold outline-none focus:border-brand-400 ${tones.value}`}
+                    />
+                    <button
+                      onClick={() => togglePago(item)}
+                      className={`shrink-0 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-bold transition ${
+                        lanc?.pago
+                          ? "bg-brand-600 text-white"
+                          : "bg-ink-100 text-ink-500"
+                      }`}
+                    >
+                      {lanc?.pago ? `✓ ${valueDoneLabel}` : valueDoneLabel}
+                    </button>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+
+        {open ? (
+          <form onSubmit={addItem} className="space-y-2 rounded-3xl bg-white p-4 shadow-card">
+            <input
+              autoFocus
+              placeholder="Nome"
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              className="w-full rounded-2xl border border-ink-100 bg-ink-50 px-4 py-2.5 text-sm outline-none focus:border-brand-400"
+            />
+            {showDia && (
+              <input
+                type="number"
+                min={1}
+                max={31}
+                placeholder="Dia de vencimento"
+                value={dia}
+                onChange={(e) => setDia(e.target.value)}
+                className="w-full rounded-2xl border border-ink-100 bg-ink-50 px-4 py-2.5 text-sm outline-none focus:border-brand-400"
+              />
+            )}
+            {showExpectativa && (
+              <label className="flex items-center gap-2 px-1 text-sm text-ink-600">
+                <input
+                  type="checkbox"
+                  checked={expectativa}
+                  onChange={(e) => setExpectativa(e.target.checked)}
+                  className="h-4 w-4 rounded accent-brand-600"
+                />
+                É uma expectativa (não garantido)
+              </label>
+            )}
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="flex-1 rounded-2xl bg-ink-100 py-2.5 text-sm font-semibold text-ink-700"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-1 rounded-2xl bg-brand-600 py-2.5 text-sm font-bold text-white disabled:opacity-60"
+              >
+                Salvar
+              </button>
+            </div>
+          </form>
+        ) : (
+          <button
+            onClick={() => setOpen(true)}
+            className={`w-full rounded-2xl border-2 border-dashed py-3 text-sm font-bold ${tones.dash}`}
+          >
+            + Adicionar
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
