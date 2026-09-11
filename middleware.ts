@@ -4,37 +4,43 @@ import { NextResponse, type NextRequest } from "next/server";
 // Sem tela de login por enquanto: se não houver sessão, cria uma sessão
 // anônima automaticamente. Os dados continuam isolados por usuário (RLS),
 // só que o "usuário" é criado nos bastidores em vez de pedir cadastro.
-// Exige "Allow anonymous sign-ins" habilitado em Authentication > Settings
-// no painel do Supabase.
+// Exige "Allow anonymous sign-ins" habilitado em Authentication > Sign In /
+// Providers no painel do Supabase.
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({ request: { headers: request.headers } });
+  const response = NextResponse.next({ request: { headers: request.headers } });
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
+  try {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return request.cookies.get(name)?.value;
+          },
+          set(name: string, value: string, options: CookieOptions) {
+            response.cookies.set({ name, value, ...options });
+          },
+          remove(name: string, options: CookieOptions) {
+            response.cookies.set({ name, value: "", ...options });
+          },
         },
-        set(name: string, value: string, options: CookieOptions) {
-          response = NextResponse.next({ request: { headers: request.headers } });
-          response.cookies.set({ name, value, ...options });
-        },
-        remove(name: string, options: CookieOptions) {
-          response = NextResponse.next({ request: { headers: request.headers } });
-          response.cookies.set({ name, value: "", ...options });
-        },
-      },
+      }
+    );
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      const { error } = await supabase.auth.signInAnonymously();
+      if (error) {
+        console.error("Falha ao criar sessão anônima:", error.message);
+      }
     }
-  );
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    await supabase.auth.signInAnonymously();
+  } catch (err) {
+    // Nunca deixa o middleware derrubar o site inteiro por causa de auth.
+    console.error("Erro no middleware de auth:", err);
   }
 
   return response;
