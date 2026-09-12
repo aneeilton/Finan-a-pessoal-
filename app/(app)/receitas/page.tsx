@@ -1,23 +1,28 @@
 import { createClient } from "@/lib/supabase/server";
 import { MonthlyItemsScreen } from "@/components/screens/MonthlyItemsScreen";
+import { PageError } from "@/components/ui/PageError";
 import { currentCompetencia } from "@/lib/format";
 
 export default async function ReceitasPage() {
   const supabase = createClient();
-  const { data: items } = await supabase
+  const { data: items, error: itemsError } = await supabase
     .from("items")
     .select("*")
     .eq("tipo", "receita")
     .order("created_at", { ascending: true });
 
+  if (itemsError) return <PageError error={itemsError} />;
+
   const itemIds = (items ?? []).map((i) => i.id);
-  const { data: lancamentos } = itemIds.length
+  const { data: lancamentos, error: lancError } = itemIds.length
     ? await supabase
         .from("lancamentos")
         .select("*")
         .eq("competencia", currentCompetencia())
         .in("item_id", itemIds)
-    : { data: [] };
+    : { data: [], error: null };
+
+  if (lancError) return <PageError error={lancError} />;
 
   return (
     <MonthlyItemsScreen

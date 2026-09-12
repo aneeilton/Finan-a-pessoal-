@@ -1,25 +1,58 @@
 import { createClient } from "@/lib/supabase/server";
 import { DashboardScreen } from "@/components/screens/DashboardScreen";
+import { PageError } from "@/components/ui/PageError";
 import { currentCompetencia } from "@/lib/format";
 import type { Item, Lancamento } from "@/lib/types";
 
 export default async function DashboardPage() {
+  try {
+    return await renderDashboard();
+  } catch (err) {
+    return <PageError error={err} />;
+  }
+}
+
+async function renderDashboard() {
   const supabase = createClient();
   const competencia = currentCompetencia();
 
-  const [{ data: contas }, { data: dividas }, { data: bens }, { data: items }, { data: config }] =
-    await Promise.all([
-      supabase.from("contas").select("*"),
-      supabase.from("dividas").select("*"),
-      supabase.from("bens").select("*"),
-      supabase.from("items").select("*"),
-      supabase.from("config").select("*"),
-    ]);
+  const [contasRes, dividasRes, bensRes, itemsRes, configRes] = await Promise.all([
+    supabase.from("contas").select("*"),
+    supabase.from("dividas").select("*"),
+    supabase.from("bens").select("*"),
+    supabase.from("items").select("*"),
+    supabase.from("config").select("*"),
+  ]);
+
+  for (const [label, res] of [
+    ["contas", contasRes],
+    ["dividas", dividasRes],
+    ["bens", bensRes],
+    ["items", itemsRes],
+    ["config", configRes],
+  ] as const) {
+    if (res.error) {
+      throw new Error(`Falha ao consultar "${label}": ${res.error.message}`);
+    }
+  }
+
+  const contas = contasRes.data;
+  const dividas = dividasRes.data;
+  const bens = bensRes.data;
+  const items = itemsRes.data;
+  const config = configRes.data;
 
   const itemIds = (items ?? []).map((i) => i.id);
-  const { data: lancamentos } = itemIds.length
-    ? await supabase.from("lancamentos").select("*").eq("competencia", competencia).in("item_id", itemIds)
-    : { data: [] as Lancamento[] };
+  let lancamentos: Lancamento[] = [];
+  if (itemIds.length) {
+    const { data, error } = await supabase
+      .from("lancamentos")
+      .select("*")
+      .eq("competencia", competencia)
+      .in("item_id", itemIds);
+    if (error) throw new Error(`Falha ao consultar "lancamentos": ${error.message}`);
+    lancamentos = data ?? [];
+  }
 
   const variaveis = Number(config?.[0]?.variaveis ?? 0);
 
@@ -29,13 +62,13 @@ export default async function DashboardPage() {
   const totalBens = (bens ?? []).reduce((s, b) => s + Number(b.valor), 0);
 
   const itemsById = new Map<string, Item>((items ?? []).map((i) => [i.id, i as Item]));
-  const receitaMes = (lancamentos ?? [])
+  const receitaMes = lancamentos
     .filter((l) => itemsById.get(l.item_id)?.tipo === "receita")
     .reduce((s, l) => s + Number(l.valor), 0);
-  const cartoesMes = (lancamentos ?? [])
+  const cartoesMes = lancamentos
     .filter((l) => itemsById.get(l.item_id)?.tipo === "cartao")
     .reduce((s, l) => s + Number(l.valor), 0);
-  const fixasMes = (lancamentos ?? [])
+  const fixasMes = lancamentos
     .filter((l) => itemsById.get(l.item_id)?.tipo === "fixa")
     .reduce((s, l) => s + Number(l.valor), 0);
   const despesaMes = cartoesMes + fixasMes + variaveis;
@@ -43,7 +76,7 @@ export default async function DashboardPage() {
   const proximosVencimentos = (items ?? [])
     .filter((i) => (i.tipo === "cartao" || i.tipo === "fixa") && i.dia_vencimento)
     .map((i) => {
-      const lanc = (lancamentos ?? []).find((l) => l.item_id === i.id);
+      const lanc = lancamentos.find((l) => l.item_id === i.id);
       return {
         id: i.id,
         nome: i.nome,
