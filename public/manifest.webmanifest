@@ -4,7 +4,7 @@
   "description": "Controle prático das suas finanças pessoais",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f0fdf9",
-  "theme_color": "#0d9488",
+  "background_color": "#EFFBF7",
+  "theme_color": "#17685A",
   "icons": []
 }

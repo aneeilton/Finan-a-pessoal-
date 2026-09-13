@@ -1,3 +1,5 @@
+import type { LucideIcon } from "lucide-react";
+
 const TONES: Record<string, string> = {
   brand: "bg-brand-50 text-brand-700",
   coral: "bg-coral-500/10 text-coral-500",
@@ -7,13 +9,13 @@ const TONES: Record<string, string> = {
 };
 
 export function StatCard({
-  emoji,
+  icon: Icon,
   label,
   value,
   tone = "brand",
   compact = false,
 }: {
-  emoji: string;
+  icon: LucideIcon;
   label: string;
   value: string;
   tone?: keyof typeof TONES;
@@ -22,13 +24,13 @@ export function StatCard({
   return (
     <div className={`flex min-w-0 flex-col gap-1 rounded-2xl p-3 ${TONES[tone]}`}>
       <div className="flex items-center gap-1.5">
-        <span className="shrink-0 text-base leading-none">{emoji}</span>
+        <Icon size={15} strokeWidth={2} className="shrink-0" />
         <span className="truncate text-[10px] font-semibold uppercase tracking-wide opacity-80">
           {label}
         </span>
       </div>
       <span
-        className={`whitespace-nowrap font-extrabold leading-tight ${compact ? "text-sm" : "text-base"}`}
+        className={`whitespace-nowrap font-extrabold leading-tight [font-variant-numeric:tabular-nums] ${compact ? "text-sm" : "text-base"}`}
       >
         {value}
       </span>

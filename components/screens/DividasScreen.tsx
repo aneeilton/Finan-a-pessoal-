@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { FileWarning, PartyPopper, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { TopHeader } from "@/components/TopHeader";
 import { Card, EmptyState } from "@/components/ui/Card";
@@ -87,7 +88,7 @@ export function DividasScreen({ initialDividas }: { initialDividas: Divida[] }) 
   return (
     <div>
       <TopHeader
-        emoji="🧾"
+        icon={FileWarning}
         title="Dívidas"
         subtitle={`Total ${formatMoney(totalCurto + totalLongo)}`}
       />
@@ -109,7 +110,7 @@ export function DividasScreen({ initialDividas }: { initialDividas: Divida[] }) 
         </div>
 
         {dividas.length === 0 ? (
-          <EmptyState emoji="🎉" title="Nenhuma dívida cadastrada" hint="Ótimo sinal!" />
+          <EmptyState icon={PartyPopper} title="Nenhuma dívida cadastrada" hint="Ótimo sinal!" />
         ) : (
           <div className="space-y-2">
             {dividas.map((divida) => (
@@ -140,7 +141,7 @@ export function DividasScreen({ initialDividas }: { initialDividas: Divida[] }) 
                     className="text-ink-400 hover:text-coral-500"
                     aria-label="Remover dívida"
                   >
-                    ✕
+                    <X size={16} strokeWidth={2.25} />
                   </button>
                 </div>
               </Card>

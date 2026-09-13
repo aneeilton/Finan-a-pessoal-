@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
+import { CreditCard, FileWarning, Gem, PartyPopper, PiggyBank, Repeat, TrendingUp } from "lucide-react";
 import { TopHeader } from "@/components/TopHeader";
 import { Card, EmptyState } from "@/components/ui/Card";
 import { StatCard } from "@/components/ui/StatCard";
@@ -71,8 +72,8 @@ export function DashboardScreen({
   );
 
   const chartData = [
-    { name: "Receitas", valor: mes.receitaTotal, fill: "#14b8a6" },
-    { name: "Despesas", valor: mes.despesaTotal, fill: "#f43f5e" },
+    { name: "Receitas", valor: mes.receitaTotal, fill: "#2FA084" },
+    { name: "Despesas", valor: mes.despesaTotal, fill: "#E15D4C" },
   ];
   const saldoMes = mes.receitaTotal - mes.despesaTotal;
 
@@ -98,31 +99,31 @@ export function DashboardScreen({
 
   return (
     <div>
-      <TopHeader emoji="👋" title="Olá!" subtitle="Aqui está o resumo das suas finanças" />
+      <TopHeader title="Olá!" subtitle="Aqui está o resumo das suas finanças" />
 
-      <div className="space-y-4 px-4 pt-4">
+      <div className="space-y-4 px-4 pt-1">
         <MonthSelector competencia={competencia} onChange={setCompetencia} />
 
-        <Card className="bg-gradient-to-br from-brand-500 to-grape-500 text-white">
+        <Card className="bg-gradient-to-br from-brand-600 to-brand-900 text-white">
           <div className="grid grid-cols-2 gap-3">
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-white/80">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70">
                 {mes.isCurrent ? "Saldo atual" : "Saldo inicial do mês"}
               </p>
-              <p className="mt-1 whitespace-nowrap text-lg font-extrabold leading-tight">
+              <p className="mt-1 whitespace-nowrap text-lg font-extrabold leading-tight [font-variant-numeric:tabular-nums]">
                 {formatMoney(mes.saldoInicial)}
               </p>
             </div>
-            <div className="min-w-0 border-l border-white/20 pl-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-white/80">
+            <div className="min-w-0 border-l border-white/15 pl-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70">
                 Previsão fim do mês
               </p>
-              <p className="mt-1 whitespace-nowrap text-lg font-extrabold leading-tight">
+              <p className="mt-1 whitespace-nowrap text-lg font-extrabold leading-tight [font-variant-numeric:tabular-nums]">
                 {formatMoney(mes.saldoFinal)}
               </p>
             </div>
           </div>
-          <p className="mt-2 text-xs text-white/80">
+          <p className="mt-2 text-xs text-white/70">
             {mes.isCurrent
               ? "Saldo atual + receitas a receber − contas e cartões a pagar"
               : "Saldo inicial do mês + receitas a receber − contas e cartões a pagar"}
@@ -130,10 +131,10 @@ export function DashboardScreen({
         </Card>
 
         <div className="grid grid-cols-2 gap-3">
-          <StatCard emoji="📊" label="Investido" value={formatMoney(totalAplicado)} tone="grape" />
-          <StatCard emoji="🧾" label="Dívidas" value={formatMoney(totalDividas)} tone="coral" />
-          <StatCard emoji="🏡" label="Bens" value={formatMoney(totalBens)} tone="sun" />
-          <StatCard emoji="💎" label="Patrimônio líquido" value={formatMoney(patrimonioLiquido)} tone="sky" />
+          <StatCard icon={PiggyBank} label="Investido" value={formatMoney(totalAplicado)} tone="grape" />
+          <StatCard icon={FileWarning} label="Dívidas" value={formatMoney(totalDividas)} tone="coral" />
+          <StatCard icon={Gem} label="Bens" value={formatMoney(totalBens)} tone="sun" />
+          <StatCard icon={TrendingUp} label="Patrimônio líquido" value={formatMoney(patrimonioLiquido)} tone="sky" />
         </div>
 
         <DespesaDiariaCard
@@ -146,7 +147,7 @@ export function DashboardScreen({
           <div className="mb-2 flex items-center justify-between">
             <p className="text-sm font-bold text-ink-800">Este mês</p>
             <span
-              className={`rounded-full px-2 py-0.5 text-xs font-extrabold ${
+              className={`rounded-full px-2 py-0.5 text-xs font-extrabold [font-variant-numeric:tabular-nums] ${
                 saldoMes >= 0 ? "bg-brand-100 text-brand-700" : "bg-coral-500/10 text-coral-500"
               }`}
             >
@@ -161,7 +162,7 @@ export function DashboardScreen({
                   dataKey="name"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 12, fill: "#64748b" }}
+                  tick={{ fontSize: 12, fill: "#5F706C" }}
                 />
                 <Tooltip
                   cursor={{ fill: "transparent" }}
@@ -182,21 +183,21 @@ export function DashboardScreen({
           </div>
           <div className="grid grid-cols-3 gap-2">
             <StatCard
-              emoji="💳"
+              icon={CreditCard}
               label="Cartões"
               value={formatMoney(resumoSemestre.cartoes)}
               tone="coral"
               compact
             />
             <StatCard
-              emoji="🧺"
+              icon={Repeat}
               label="Fixas"
               value={formatMoney(resumoSemestre.fixas)}
               tone="sun"
               compact
             />
             <StatCard
-              emoji="📈"
+              icon={TrendingUp}
               label="Crédito"
               value={formatMoney(resumoSemestre.receitas)}
               tone="brand"
@@ -210,7 +211,7 @@ export function DashboardScreen({
                 (cartões + contas fixas) ÷ créditos previstos nos próx. 6 meses
               </p>
             </div>
-            <p className={`text-xl font-extrabold ${comprometimentoTone.text}`}>
+            <p className={`text-xl font-extrabold [font-variant-numeric:tabular-nums] ${comprometimentoTone.text}`}>
               {resumoSemestre.comprometimento.toFixed(0)}%
             </p>
           </Card>
@@ -219,23 +220,32 @@ export function DashboardScreen({
         <div>
           <p className="mb-2 px-1 text-sm font-bold text-ink-800">Vencimentos do mês</p>
           {proximosVencimentos.length === 0 ? (
-            <EmptyState emoji="🎉" title="Nada vencendo neste mês" />
+            <EmptyState icon={PartyPopper} title="Nada vencendo neste mês" />
           ) : (
             <div className="space-y-2">
-              {proximosVencimentos.map((v) => (
-                <Card key={v.id} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-ink-50 text-sm">
-                      {v.tipo === "cartao" ? "💳" : "🧺"}
-                    </span>
-                    <div>
-                      <p className="text-sm font-semibold text-ink-800">{v.nome}</p>
-                      <p className="text-xs text-ink-400">Vence dia {v.dia}</p>
+              {proximosVencimentos.map((v) => {
+                const VencIcon = v.tipo === "cartao" ? CreditCard : Repeat;
+                return (
+                  <Card key={v.id} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`flex h-9 w-9 items-center justify-center rounded-2xl ${
+                          v.tipo === "cartao" ? "bg-coral-500/10 text-coral-500" : "bg-sun-500/10 text-sun-500"
+                        }`}
+                      >
+                        <VencIcon size={16} strokeWidth={2} />
+                      </span>
+                      <div>
+                        <p className="text-sm font-semibold text-ink-800">{v.nome}</p>
+                        <p className="text-xs text-ink-400">Vence dia {v.dia}</p>
+                      </div>
                     </div>
-                  </div>
-                  <p className="font-extrabold text-ink-800">{formatMoney(v.valor)}</p>
-                </Card>
-              ))}
+                    <p className="font-extrabold text-ink-800 [font-variant-numeric:tabular-nums]">
+                      {formatMoney(v.valor)}
+                    </p>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>

@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { CalendarRange } from "lucide-react";
 import { TopHeader } from "@/components/TopHeader";
 import { Card } from "@/components/ui/Card";
 import { buildMonthlyProjection } from "@/lib/projection";
@@ -43,15 +44,17 @@ export function SemestreScreen({
 
   return (
     <div>
-      <TopHeader emoji="🗓️" title="Semestre" subtitle="Próximos 6 meses" />
+      <TopHeader icon={CalendarRange} title="Semestre" subtitle="Próximos 6 meses" />
 
-      <div className="space-y-4 px-4 pt-4">
-        <Card className="bg-gradient-to-br from-grape-500 to-brand-600 text-white">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-white/80">
+      <div className="space-y-4 px-4 pt-1">
+        <Card className="bg-gradient-to-br from-grape-500 to-[#4A3876] text-white">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70">
             Saldo previsto em {monthLabel(series[series.length - 1]?.competencia ?? "")}
           </p>
-          <p className="mt-1 text-3xl font-extrabold">{formatMoney(fechamentoFinal)}</p>
-          <p className="mt-1 text-xs text-white/80">
+          <p className="mt-1 text-3xl font-extrabold [font-variant-numeric:tabular-nums]">
+            {formatMoney(fechamentoFinal)}
+          </p>
+          <p className="mt-1 text-xs text-white/70">
             A partir do saldo atual de {formatMoney(saldoAtual)}
           </p>
         </Card>
@@ -80,11 +83,11 @@ export function SemestreScreen({
                   dataKey="name"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 11, fill: "#94a3b8" }}
+                  tick={{ fontSize: 11, fill: "#8B9995" }}
                 />
                 <YAxis hide />
                 <Tooltip formatter={(value: number) => formatMoney(value)} />
-                <Bar dataKey="saldo" radius={[8, 8, 8, 8]} fill="#a855f7" />
+                <Bar dataKey="saldo" radius={[8, 8, 8, 8]} fill="#7B5BB8" />
               </BarChart>
             </ResponsiveContainer>
           </div>

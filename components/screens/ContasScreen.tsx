@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Landmark, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { TopHeader } from "@/components/TopHeader";
 import { Card, EmptyState } from "@/components/ui/Card";
@@ -96,7 +97,7 @@ export function ContasScreen({ initialContas }: { initialContas: Conta[] }) {
   return (
     <div>
       <TopHeader
-        emoji="🏦"
+        icon={Landmark}
         title="Contas"
         subtitle={`Saldo total ${formatMoney(totalCorrente + totalAplicado)}`}
       />
@@ -118,7 +119,7 @@ export function ContasScreen({ initialContas }: { initialContas: Conta[] }) {
         </div>
 
         {contas.length === 0 ? (
-          <EmptyState emoji="🏦" title="Nenhuma conta ainda" hint="Adicione seu primeiro banco ou carteira" />
+          <EmptyState icon={Landmark} title="Nenhuma conta ainda" hint="Adicione seu primeiro banco ou carteira" />
         ) : (
           <div className="space-y-2">
             {contas.map((conta) => (
@@ -145,7 +146,7 @@ export function ContasScreen({ initialContas }: { initialContas: Conta[] }) {
                     className="text-ink-400 hover:text-coral-500"
                     aria-label="Remover conta"
                   >
-                    ✕
+                    <X size={16} strokeWidth={2.25} />
                   </button>
                 </div>
               </Card>

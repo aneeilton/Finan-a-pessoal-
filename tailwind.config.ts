@@ -5,47 +5,55 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // "Jade" -- verde-esmeralda profundo, tom autoral (não é o teal
+        // padrão do Tailwind): remete a crescimento/confiança sem soar
+        // gritante feito app-brinquedo.
         brand: {
-          50: "#f0fdf9",
-          100: "#ccfbef",
-          200: "#99f6e0",
-          300: "#5eead4",
-          400: "#2dd4bf",
-          500: "#14b8a6",
-          600: "#0d9488",
-          700: "#0f766e",
-          800: "#115e59",
-          900: "#134e4a",
+          50: "#EFFBF7",
+          100: "#D9F3EA",
+          200: "#B3E7D6",
+          300: "#82D3BC",
+          400: "#52BB9F",
+          500: "#2FA084",
+          600: "#1F8570",
+          700: "#17685A",
+          800: "#144F47",
+          900: "#0F3B36",
         },
-        sun: {
-          400: "#fbbf24",
-          500: "#f59e0b",
-        },
+        // alerta/despesa: terracota-vermelho quente, evita o rosa neon
         coral: {
-          400: "#fb7185",
-          500: "#f43f5e",
+          400: "#F0897C",
+          500: "#E15D4C",
         },
+        // pendências: ocre amarelado, mais terroso que amber puro
+        sun: {
+          400: "#EFB35C",
+          500: "#D6912A",
+        },
+        // investimentos: ameixa/violeta profundo
         grape: {
-          400: "#c084fc",
-          500: "#a855f7",
+          400: "#A78BDB",
+          500: "#7B5BB8",
         },
+        // contas/informativo: azul-aço, menos ciano-neon
         sky: {
-          400: "#38bdf8",
-          500: "#0ea5e9",
+          400: "#6FAFCB",
+          500: "#3A85A8",
         },
+        // neutro com leve tom esverdeado (não é slate azulado padrão)
         ink: {
-          50: "#f8fafc",
-          100: "#f1f5f9",
-          400: "#94a3b8",
-          500: "#64748b",
-          700: "#334155",
-          800: "#1e293b",
-          900: "#0f172a",
+          50: "#F6F8F7",
+          100: "#EBEFED",
+          400: "#8B9995",
+          500: "#5F706C",
+          700: "#33413E",
+          800: "#202B29",
+          900: "#121917",
         },
       },
       fontFamily: {
         sans: [
-          "Inter",
+          "var(--font-sans)",
           "system-ui",
           "-apple-system",
           "Segoe UI",
@@ -58,8 +66,8 @@ const config: Config = {
         "3xl": "1.75rem",
       },
       boxShadow: {
-        card: "0 2px 10px -2px rgba(15, 23, 42, 0.08), 0 8px 24px -8px rgba(15, 23, 42, 0.08)",
-        pop: "0 8px 24px -6px rgba(20, 184, 166, 0.35)",
+        card: "0 1px 2px -1px rgba(18, 25, 23, 0.06), 0 4px 16px -6px rgba(18, 25, 23, 0.10)",
+        pop: "0 10px 28px -8px rgba(23, 104, 90, 0.4)",
       },
       keyframes: {
         "pop-in": {

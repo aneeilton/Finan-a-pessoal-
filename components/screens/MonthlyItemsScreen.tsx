@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Check, CreditCard, Pencil, Repeat, TrendingUp, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { TopHeader } from "@/components/TopHeader";
 import { Card, EmptyState } from "@/components/ui/Card";
@@ -18,12 +19,20 @@ const TONE_CLASSES: Record<Tone, { chip: string; value: string; dash: string }> 
   grape: { chip: "bg-grape-500/10 text-grape-500", value: "text-grape-500", dash: "border-grape-400 text-grape-500" },
 };
 
+// O icone e derivado do tipo aqui dentro (nao recebido via prop) porque
+// esse componente e montado a partir de Server Components: referencia de
+// componente nao atravessa a fronteira server/client de forma serializavel.
+const TIPO_ICON = {
+  receita: TrendingUp,
+  cartao: CreditCard,
+  fixa: Repeat,
+} as const;
+
 type SaveState = "idle" | "saving" | "saved" | "error";
 
 export function MonthlyItemsScreen({
   tipo,
   title,
-  emoji,
   tone,
   valueDoneLabel,
   showDia,
@@ -33,7 +42,6 @@ export function MonthlyItemsScreen({
 }: {
   tipo: ItemTipo;
   title: string;
-  emoji: string;
   tone: Tone;
   valueDoneLabel: string;
   showDia: boolean;
@@ -43,6 +51,7 @@ export function MonthlyItemsScreen({
 }) {
   const supabase = createClient();
   const tones = TONE_CLASSES[tone];
+  const icon = TIPO_ICON[tipo];
   const [items, setItems] = useState(initialItems);
   const [competencia, setCompetencia] = useState(currentCompetencia());
   const [lancamentos, setLancamentos] = useState<Record<string, Lancamento>>(
@@ -249,16 +258,16 @@ export function MonthlyItemsScreen({
   return (
     <div>
       <TopHeader
-        emoji={emoji}
+        icon={icon}
         title={title}
         subtitle={`Total em ${monthLabel(competencia)} · ${formatMoney(total)}`}
       />
 
-      <div className="space-y-4 px-4 pt-4">
+      <div className="space-y-4 px-4 pt-1">
         <MonthSelector competencia={competencia} onChange={setCompetencia} />
 
         {items.length === 0 ? (
-          <EmptyState emoji={emoji} title="Nada por aqui ainda" hint="Adicione o primeiro item" />
+          <EmptyState icon={icon} title="Nada por aqui ainda" hint="Adicione o primeiro item" />
         ) : (
           <div className={`space-y-2 ${loading ? "opacity-60" : ""}`}>
             {items.map((item) => {
@@ -289,14 +298,14 @@ export function MonthlyItemsScreen({
                         className="text-ink-400 hover:text-brand-600"
                         aria-label="Editar"
                       >
-                        ✏️
+                        <Pencil size={15} strokeWidth={2.25} />
                       </button>
                       <button
                         onClick={() => removeItem(item.id)}
                         className="text-ink-400 hover:text-coral-500"
                         aria-label="Remover"
                       >
-                        ✕
+                        <X size={16} strokeWidth={2.25} />
                       </button>
                     </div>
                   </div>
@@ -319,7 +328,7 @@ export function MonthlyItemsScreen({
                     <button
                       onClick={() => saveValor(item)}
                       disabled={!dirty || state === "saving"}
-                      className={`shrink-0 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-bold transition ${
+                      className={`flex shrink-0 items-center gap-1 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-bold transition ${
                         state === "saved"
                           ? "bg-brand-600 text-white"
                           : dirty
@@ -327,17 +336,19 @@ export function MonthlyItemsScreen({
                             : "bg-ink-100 text-ink-400"
                       }`}
                     >
-                      {state === "saving" ? "Salvando..." : state === "saved" ? "✓ Salvo" : "Salvar"}
+                      {state === "saved" && <Check size={13} strokeWidth={2.5} />}
+                      {state === "saving" ? "Salvando..." : state === "saved" ? "Salvo" : "Salvar"}
                     </button>
                     <button
                       onClick={() => togglePago(item)}
-                      className={`shrink-0 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-bold transition ${
+                      className={`flex shrink-0 items-center gap-1 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-bold transition ${
                         lanc?.pago
                           ? "bg-brand-600 text-white"
                           : "bg-ink-100 text-ink-500"
                       }`}
                     >
-                      {lanc?.pago ? `✓ ${valueDoneLabel}` : valueDoneLabel}
+                      {lanc?.pago && <Check size={13} strokeWidth={2.5} />}
+                      {valueDoneLabel}
                     </button>
                   </div>
                   {saveErrors[item.id] && (

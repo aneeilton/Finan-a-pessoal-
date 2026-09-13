@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { LineChart as LineChartIcon, TrendingDown, TrendingUp } from "lucide-react";
 import { TopHeader } from "@/components/TopHeader";
 import { Card } from "@/components/ui/Card";
 import { StatCard } from "@/components/ui/StatCard";
@@ -38,20 +39,22 @@ export function ProjecaoScreen({
 
   return (
     <div>
-      <TopHeader emoji="📈" title="Projeção" subtitle="Saldo previsto mês a mês" />
+      <TopHeader icon={LineChartIcon} title="Projeção" subtitle="Saldo previsto mês a mês" />
 
-      <div className="space-y-4 px-4 pt-4">
-        <Card className="bg-gradient-to-br from-brand-500 to-grape-500 text-white">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-white/80">
+      <div className="space-y-4 px-4 pt-1">
+        <Card className="bg-gradient-to-br from-brand-600 to-brand-900 text-white">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70">
             Este mês ({monthLabel(atual.competencia)})
           </p>
-          <p className="mt-1 text-3xl font-extrabold">{formatMoney(atual.saldoFinal)}</p>
-          <p className="mt-1 text-xs text-white/80">Previsão de fechamento do mês atual</p>
+          <p className="mt-1 text-3xl font-extrabold [font-variant-numeric:tabular-nums]">
+            {formatMoney(atual.saldoFinal)}
+          </p>
+          <p className="mt-1 text-xs text-white/70">Previsão de fechamento do mês atual</p>
         </Card>
 
         <div className="grid grid-cols-2 gap-3">
-          <StatCard emoji="📈" label="Receitas do mês" value={formatMoney(atual.receitaTotal)} tone="brand" />
-          <StatCard emoji="📉" label="Despesas do mês" value={formatMoney(atual.despesaTotal)} tone="coral" />
+          <StatCard icon={TrendingUp} label="Receitas do mês" value={formatMoney(atual.receitaTotal)} tone="brand" />
+          <StatCard icon={TrendingDown} label="Despesas do mês" value={formatMoney(atual.despesaTotal)} tone="coral" />
         </div>
 
         <Card>
@@ -63,7 +66,7 @@ export function ProjecaoScreen({
                   dataKey="name"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 10, fill: "#94a3b8" }}
+                  tick={{ fontSize: 10, fill: "#8B9995" }}
                   interval={Math.ceil(chartData.length / 6)}
                 />
                 <YAxis hide />
@@ -71,7 +74,7 @@ export function ProjecaoScreen({
                 <Line
                   type="monotone"
                   dataKey="saldo"
-                  stroke="#0d9488"
+                  stroke="#1F8570"
                   strokeWidth={2.5}
                   dot={false}
                 />

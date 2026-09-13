@@ -1,5 +1,7 @@
 "use client";
 
+import { OctagonAlert } from "lucide-react";
+
 export default function AppError({
   error,
   reset,
@@ -9,7 +11,9 @@ export default function AppError({
 }) {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-ink-50 p-6 text-center">
-      <span className="text-3xl">😵</span>
+      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-coral-500/10 text-coral-500">
+        <OctagonAlert size={22} strokeWidth={1.75} />
+      </span>
       <p className="text-sm font-bold text-ink-800">Algo deu errado ao carregar essa tela</p>
       <p className="max-w-xs break-words rounded-2xl bg-white p-3 text-xs text-ink-500 shadow-card">
         {error.message || "Erro sem mensagem (verifique os Runtime Logs na Vercel)."}

@@ -28,7 +28,6 @@ export default async function ReceitasPage() {
     <MonthlyItemsScreen
       tipo="receita"
       title="Receitas"
-      emoji="📈"
       tone="brand"
       valueDoneLabel="Recebido"
       showDia={false}

@@ -28,7 +28,6 @@ export default async function FixasPage() {
     <MonthlyItemsScreen
       tipo="fixa"
       title="Contas fixas"
-      emoji="🧺"
       tone="sun"
       valueDoneLabel="Pago"
       showDia={true}

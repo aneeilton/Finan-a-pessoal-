@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Gem, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { TopHeader } from "@/components/TopHeader";
 import { Card, EmptyState } from "@/components/ui/Card";
@@ -76,11 +77,11 @@ export function BensScreen({ initialBens }: { initialBens: Bem[] }) {
 
   return (
     <div>
-      <TopHeader emoji="🏡" title="Patrimônio" subtitle={`Total ${formatMoney(total)}`} />
+      <TopHeader icon={Gem} title="Patrimônio" subtitle={`Total ${formatMoney(total)}`} />
 
       <div className="space-y-4 px-4 pt-4">
         {bens.length === 0 ? (
-          <EmptyState emoji="🏡" title="Nenhum bem cadastrado" hint="Casa, carro, eletrônicos..." />
+          <EmptyState icon={Gem} title="Nenhum bem cadastrado" hint="Casa, carro, eletrônicos..." />
         ) : (
           <div className="space-y-2">
             {bens.map((bem) => (
@@ -100,7 +101,7 @@ export function BensScreen({ initialBens }: { initialBens: Bem[] }) {
                     className="text-ink-400 hover:text-coral-500"
                     aria-label="Remover bem"
                   >
-                    ✕
+                    <X size={16} strokeWidth={2.25} />
                   </button>
                 </div>
               </Card>

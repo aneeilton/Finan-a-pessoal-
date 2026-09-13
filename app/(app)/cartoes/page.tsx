@@ -28,7 +28,6 @@ export default async function CartoesPage() {
     <MonthlyItemsScreen
       tipo="cartao"
       title="Cartões"
-      emoji="💳"
       tone="coral"
       valueDoneLabel="Pago"
       showDia={true}

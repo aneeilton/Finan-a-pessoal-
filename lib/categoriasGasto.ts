@@ -1,18 +1,30 @@
+import {
+  ShoppingCart,
+  UtensilsCrossed,
+  Car,
+  Gamepad2,
+  Pill,
+  Home,
+  PawPrint,
+  Receipt,
+  type LucideIcon,
+} from "lucide-react";
+
 export const CATEGORIAS_GASTO = [
-  { id: "mercado", label: "Mercado", emoji: "🛒" },
-  { id: "alimentacao", label: "Alimentação", emoji: "🍔" },
-  { id: "transporte", label: "Transporte", emoji: "🚗" },
-  { id: "lazer", label: "Lazer", emoji: "🎮" },
-  { id: "saude", label: "Saúde", emoji: "💊" },
-  { id: "casa", label: "Casa", emoji: "🏠" },
-  { id: "pet", label: "Pet", emoji: "🐾" },
-  { id: "outros", label: "Outros", emoji: "🧾" },
+  { id: "mercado", label: "Mercado", icon: ShoppingCart },
+  { id: "alimentacao", label: "Alimentação", icon: UtensilsCrossed },
+  { id: "transporte", label: "Transporte", icon: Car },
+  { id: "lazer", label: "Lazer", icon: Gamepad2 },
+  { id: "saude", label: "Saúde", icon: Pill },
+  { id: "casa", label: "Casa", icon: Home },
+  { id: "pet", label: "Pet", icon: PawPrint },
+  { id: "outros", label: "Outros", icon: Receipt },
 ] as const;
 
 export type CategoriaGasto = (typeof CATEGORIAS_GASTO)[number]["id"];
 
-export function categoriaEmoji(id: string): string {
-  return CATEGORIAS_GASTO.find((c) => c.id === id)?.emoji ?? "🧾";
+export function categoriaIcon(id: string): LucideIcon {
+  return CATEGORIAS_GASTO.find((c) => c.id === id)?.icon ?? Receipt;
 }
 
 export function categoriaLabel(id: string): string {
