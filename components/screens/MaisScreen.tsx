@@ -26,17 +26,28 @@ export function MaisScreen({
   const [variaveis, setVariaveis] = useState(String(initialVariaveis || ""));
   const [savingVar, setSavingVar] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [varError, setVarError] = useState<string | null>(null);
 
   async function saveVariaveis() {
     setSavingVar(true);
     setSaved(false);
+    setVarError(null);
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    await supabase
+    if (!user) {
+      setSavingVar(false);
+      setVarError("Sessão não encontrada");
+      return;
+    }
+    const { error } = await supabase
       .from("config")
-      .upsert({ user_id: user!.id, variaveis: Number(variaveis || 0) }, { onConflict: "user_id" });
+      .upsert({ user_id: user.id, variaveis: Number(variaveis || 0) }, { onConflict: "user_id" });
     setSavingVar(false);
+    if (error) {
+      setVarError(error.message);
+      return;
+    }
     setSaved(true);
   }
 
@@ -87,6 +98,9 @@ export function MaisScreen({
             </button>
           </div>
           {saved && <p className="mt-2 text-xs font-semibold text-brand-600">Salvo!</p>}
+          {varError && (
+            <p className="mt-2 text-xs font-semibold text-coral-500">Erro ao salvar: {varError}</p>
+          )}
         </Card>
       </div>
     </div>

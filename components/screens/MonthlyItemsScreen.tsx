@@ -17,6 +17,8 @@ const TONE_CLASSES: Record<Tone, { chip: string; value: string; dash: string }> 
   grape: { chip: "bg-grape-500/10 text-grape-500", value: "text-grape-500", dash: "border-grape-400 text-grape-500" },
 };
 
+type SaveState = "idle" | "saving" | "saved" | "error";
+
 export function MonthlyItemsScreen({
   tipo,
   title,
@@ -45,6 +47,11 @@ export function MonthlyItemsScreen({
   const [lancamentos, setLancamentos] = useState<Record<string, Lancamento>>(
     Object.fromEntries(initialLancamentos.map((l) => [l.item_id, l]))
   );
+  const [drafts, setDrafts] = useState<Record<string, string>>(
+    Object.fromEntries(initialLancamentos.map((l) => [l.item_id, String(l.valor)]))
+  );
+  const [saveState, setSaveState] = useState<Record<string, SaveState>>({});
+  const [saveErrors, setSaveErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [nome, setNome] = useState("");
@@ -62,7 +69,13 @@ export function MonthlyItemsScreen({
         .eq("competencia", competencia)
         .in("item_id", items.map((i) => i.id).length ? items.map((i) => i.id) : ["00000000-0000-0000-0000-000000000000"]);
       if (!cancelled) {
-        setLancamentos(Object.fromEntries((data ?? []).map((l) => [l.item_id, l as Lancamento])));
+        const byItem: Record<string, Lancamento> = Object.fromEntries(
+          (data ?? []).map((l) => [l.item_id, l as Lancamento])
+        );
+        setLancamentos(byItem);
+        setDrafts(Object.fromEntries(Object.entries(byItem).map(([id, l]) => [id, String(l.valor)])));
+        setSaveState({});
+        setSaveErrors({});
         setLoading(false);
       }
     }
@@ -77,6 +90,12 @@ export function MonthlyItemsScreen({
     () => Object.values(lancamentos).reduce((s, l) => s + Number(l.valor), 0),
     [lancamentos]
   );
+
+  function isDirty(item: Item) {
+    const draft = drafts[item.id] ?? "";
+    const saved = lancamentos[item.id]?.valor ?? 0;
+    return Number(draft || 0) !== Number(saved);
+  }
 
   async function addItem(e: React.FormEvent) {
     e.preventDefault();
@@ -111,10 +130,25 @@ export function MonthlyItemsScreen({
     await supabase.from("items").delete().eq("id", id);
   }
 
-  async function saveValor(item: Item, valor: number) {
+  async function saveValor(item: Item) {
+    const valor = Number(drafts[item.id] || 0);
+    setSaveState((prev) => ({ ...prev, [item.id]: "saving" }));
+    setSaveErrors((prev) => {
+      const next = { ...prev };
+      delete next[item.id];
+      return next;
+    });
+
     const {
       data: { user },
+      error: userError,
     } = await supabase.auth.getUser();
+    if (userError || !user) {
+      setSaveState((prev) => ({ ...prev, [item.id]: "error" }));
+      setSaveErrors((prev) => ({ ...prev, [item.id]: userError?.message ?? "Sessão não encontrada" }));
+      return;
+    }
+
     const existing = lancamentos[item.id];
     const { data, error } = await supabase
       .from("lancamentos")
@@ -122,7 +156,7 @@ export function MonthlyItemsScreen({
         {
           id: existing?.id,
           item_id: item.id,
-          user_id: user!.id,
+          user_id: user.id,
           competencia,
           valor,
           pago: existing?.pago ?? false,
@@ -131,9 +165,19 @@ export function MonthlyItemsScreen({
       )
       .select()
       .single();
-    if (!error && data) {
-      setLancamentos((prev) => ({ ...prev, [item.id]: data as Lancamento }));
+
+    if (error || !data) {
+      setSaveState((prev) => ({ ...prev, [item.id]: "error" }));
+      setSaveErrors((prev) => ({ ...prev, [item.id]: error?.message ?? "Falha ao salvar" }));
+      return;
     }
+
+    setLancamentos((prev) => ({ ...prev, [item.id]: data as Lancamento }));
+    setDrafts((prev) => ({ ...prev, [item.id]: String((data as Lancamento).valor) }));
+    setSaveState((prev) => ({ ...prev, [item.id]: "saved" }));
+    setTimeout(() => {
+      setSaveState((prev) => (prev[item.id] === "saved" ? { ...prev, [item.id]: "idle" } : prev));
+    }, 1800);
   }
 
   async function togglePago(item: Item) {
@@ -141,24 +185,28 @@ export function MonthlyItemsScreen({
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    if (!user) return;
     const { data, error } = await supabase
       .from("lancamentos")
       .upsert(
         {
           id: existing?.id,
           item_id: item.id,
-          user_id: user!.id,
+          user_id: user.id,
           competencia,
-          valor: existing?.valor ?? 0,
+          valor: existing?.valor ?? Number(drafts[item.id] || 0),
           pago: !(existing?.pago ?? false),
         },
         { onConflict: "item_id,competencia" }
       )
       .select()
       .single();
-    if (!error && data) {
-      setLancamentos((prev) => ({ ...prev, [item.id]: data as Lancamento }));
+    if (error || !data) {
+      setSaveErrors((prev) => ({ ...prev, [item.id]: error?.message ?? "Falha ao salvar" }));
+      return;
     }
+    setLancamentos((prev) => ({ ...prev, [item.id]: data as Lancamento }));
+    setDrafts((prev) => ({ ...prev, [item.id]: String((data as Lancamento).valor) }));
   }
 
   return (
@@ -198,6 +246,8 @@ export function MonthlyItemsScreen({
           <div className={`space-y-2 ${loading ? "opacity-60" : ""}`}>
             {items.map((item) => {
               const lanc = lancamentos[item.id];
+              const dirty = isDirty(item);
+              const state = saveState[item.id] ?? "idle";
               return (
                 <Card key={item.id}>
                   <div className="flex items-start justify-between gap-2">
@@ -229,12 +279,30 @@ export function MonthlyItemsScreen({
                     <input
                       type="number"
                       step="0.01"
-                      defaultValue={lanc ? Number(lanc.valor) : ""}
-                      key={`${item.id}-${competencia}`}
+                      inputMode="decimal"
+                      value={drafts[item.id] ?? ""}
                       placeholder="0,00"
-                      onBlur={(e) => saveValor(item, Number(e.target.value || 0))}
+                      onChange={(e) =>
+                        setDrafts((prev) => ({ ...prev, [item.id]: e.target.value }))
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveValor(item);
+                      }}
                       className={`w-full rounded-xl border border-ink-100 bg-ink-50 px-3 py-2 text-sm font-bold outline-none focus:border-brand-400 ${tones.value}`}
                     />
+                    <button
+                      onClick={() => saveValor(item)}
+                      disabled={!dirty || state === "saving"}
+                      className={`shrink-0 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-bold transition ${
+                        state === "saved"
+                          ? "bg-brand-600 text-white"
+                          : dirty
+                            ? "bg-ink-800 text-white"
+                            : "bg-ink-100 text-ink-400"
+                      }`}
+                    >
+                      {state === "saving" ? "Salvando..." : state === "saved" ? "✓ Salvo" : "Salvar"}
+                    </button>
                     <button
                       onClick={() => togglePago(item)}
                       className={`shrink-0 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-bold transition ${
@@ -246,6 +314,11 @@ export function MonthlyItemsScreen({
                       {lanc?.pago ? `✓ ${valueDoneLabel}` : valueDoneLabel}
                     </button>
                   </div>
+                  {saveErrors[item.id] && (
+                    <p className="mt-1.5 text-xs font-medium text-coral-500">
+                      Erro ao salvar: {saveErrors[item.id]}
+                    </p>
+                  )}
                 </Card>
               );
             })}
