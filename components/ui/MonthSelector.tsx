@@ -1,4 +1,4 @@
-import { shiftCompetencia } from "@/lib/format";
+import { monthYearLabel, shiftCompetencia } from "@/lib/format";
 
 export function MonthSelector({
   competencia,
@@ -16,11 +16,7 @@ export function MonthSelector({
       >
         ‹
       </button>
-      <span className="text-sm font-bold capitalize text-ink-800">
-        {new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(
-          new Date(competencia)
-        )}
-      </span>
+      <span className="text-sm font-bold text-ink-800">{monthYearLabel(competencia)}</span>
       <button
         onClick={() => onChange(shiftCompetencia(competencia, 1))}
         className="h-8 w-8 rounded-xl bg-ink-50 text-ink-500"

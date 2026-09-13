@@ -5,11 +5,25 @@ export function formatMoney(value: number): string {
   }).format(value ?? 0);
 }
 
+// competencia é sempre "YYYY-MM-01". new Date(competencia) (string) seria
+// interpretado como UTC e, em fusos negativos (ex: Brasil), voltaria pro
+// mês anterior ao formatar em hora local -- por isso construímos a data
+// com os componentes numéricos direto, sempre em horário local.
+function competenciaToLocalDate(competencia: string): Date {
+  const [year, month] = competencia.split("-").map(Number);
+  return new Date(year, month - 1, 1);
+}
+
 export function monthLabel(competencia: string): string {
-  const [year, month] = competencia.split("-");
-  const date = new Date(Number(year), Number(month) - 1, 1);
+  const date = competenciaToLocalDate(competencia);
   const label = new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(date);
   return label.replace(".", "").replace(/^\w/, (c) => c.toUpperCase());
+}
+
+export function monthYearLabel(competencia: string): string {
+  const date = competenciaToLocalDate(competencia);
+  const label = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(date);
+  return label.replace(/^\w/, (c) => c.toUpperCase());
 }
 
 export function currentCompetencia(): string {
