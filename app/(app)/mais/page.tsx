@@ -19,5 +19,11 @@ export default async function MaisPage() {
 
   if (error) return <PageError error={error} />;
 
-  return <MaisScreen initialVariaveis={Number(config?.variaveis ?? 0)} />;
+  return (
+    <MaisScreen
+      initialVariaveis={Number(config?.variaveis ?? 0)}
+      isAnonymous={user?.is_anonymous ?? true}
+      email={user?.email ?? null}
+    />
+  );
 }

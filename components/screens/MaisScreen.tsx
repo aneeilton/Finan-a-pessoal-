@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { TopHeader } from "@/components/TopHeader";
 import { Card } from "@/components/ui/Card";
+import { AccountSyncCard } from "@/components/screens/AccountSyncCard";
 
 const LINKS = [
   { href: "/dividas", label: "Dívidas", emoji: "🧾", hint: "Curto e longo prazo" },
@@ -12,7 +13,15 @@ const LINKS = [
   { href: "/fixas", label: "Contas fixas", emoji: "🧺", hint: "Aluguel, escola, internet..." },
 ];
 
-export function MaisScreen({ initialVariaveis }: { initialVariaveis: number }) {
+export function MaisScreen({
+  initialVariaveis,
+  isAnonymous,
+  email,
+}: {
+  initialVariaveis: number;
+  isAnonymous: boolean;
+  email: string | null;
+}) {
   const supabase = createClient();
   const [variaveis, setVariaveis] = useState(String(initialVariaveis || ""));
   const [savingVar, setSavingVar] = useState(false);
@@ -36,6 +45,8 @@ export function MaisScreen({ initialVariaveis }: { initialVariaveis: number }) {
       <TopHeader emoji="✨" title="Mais" subtitle="Configurações e categorias" />
 
       <div className="space-y-4 px-4 pt-4">
+        <AccountSyncCard isAnonymous={isAnonymous} email={email} />
+
         <div className="grid grid-cols-1 gap-2">
           {LINKS.map((link) => (
             <Link key={link.href} href={link.href}>
