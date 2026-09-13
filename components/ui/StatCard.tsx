@@ -11,19 +11,25 @@ export function StatCard({
   label,
   value,
   tone = "brand",
+  compact = false,
 }: {
   emoji: string;
   label: string;
   value: string;
   tone?: keyof typeof TONES;
+  compact?: boolean;
 }) {
   return (
-    <div className={`flex flex-col gap-1 rounded-2xl p-3 ${TONES[tone]}`}>
+    <div className={`flex min-w-0 flex-col gap-1 rounded-2xl p-3 ${TONES[tone]}`}>
       <span className="text-lg leading-none">{emoji}</span>
-      <span className="text-[11px] font-semibold uppercase tracking-wide opacity-80">
+      <span className="truncate text-[10px] font-semibold uppercase tracking-wide opacity-80">
         {label}
       </span>
-      <span className="text-base font-extrabold leading-tight">{value}</span>
+      <span
+        className={`whitespace-nowrap font-extrabold leading-tight ${compact ? "text-sm" : "text-base"}`}
+      >
+        {value}
+      </span>
     </div>
   );
 }

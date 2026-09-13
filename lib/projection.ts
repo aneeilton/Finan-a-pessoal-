@@ -5,6 +5,8 @@ export type MonthProjection = {
   competencia: string;
   receitaTotal: number;
   despesaTotal: number;
+  despesaCartao: number;
+  despesaFixa: number;
   receitaPendente: number;
   despesaPendente: number;
   gastosDiarios: number;
@@ -13,7 +15,13 @@ export type MonthProjection = {
   isCurrent: boolean;
 };
 
-type MesBucket = { receitaTotal: number; despesaTotal: number; receitaPendente: number; despesaPendente: number };
+type MesBucket = {
+  receitaTotal: number;
+  despesaCartao: number;
+  despesaFixa: number;
+  receitaPendente: number;
+  despesaPendente: number;
+};
 
 /**
  * Projeta o saldo mes a mes a partir do saldo real das contas hoje
@@ -45,7 +53,13 @@ export function buildMonthlyProjection({
   const porMes = new Map<string, MesBucket>();
   function ensure(mes: string): MesBucket {
     if (!porMes.has(mes)) {
-      porMes.set(mes, { receitaTotal: 0, despesaTotal: 0, receitaPendente: 0, despesaPendente: 0 });
+      porMes.set(mes, {
+        receitaTotal: 0,
+        despesaCartao: 0,
+        despesaFixa: 0,
+        receitaPendente: 0,
+        despesaPendente: 0,
+      });
     }
     return porMes.get(mes)!;
   }
@@ -59,7 +73,8 @@ export function buildMonthlyProjection({
       bucket.receitaTotal += valor;
       if (!l.pago) bucket.receitaPendente += valor;
     } else {
-      bucket.despesaTotal += valor;
+      if (item.tipo === "cartao") bucket.despesaCartao += valor;
+      else bucket.despesaFixa += valor;
       if (!l.pago) bucket.despesaPendente += valor;
     }
   }
@@ -73,14 +88,17 @@ export function buildMonthlyProjection({
   function dadosDoMes(competencia: string) {
     const base = porMes.get(competencia) ?? {
       receitaTotal: 0,
-      despesaTotal: 0,
+      despesaCartao: 0,
+      despesaFixa: 0,
       receitaPendente: 0,
       despesaPendente: 0,
     };
     const gastos = gastosPorMes.get(competencia) ?? 0;
     return {
       receitaTotal: base.receitaTotal,
-      despesaTotal: base.despesaTotal + gastos,
+      despesaCartao: base.despesaCartao,
+      despesaFixa: base.despesaFixa,
+      despesaTotal: base.despesaCartao + base.despesaFixa + gastos,
       receitaPendente: base.receitaPendente,
       despesaPendente: base.despesaPendente + gastos,
       gastosDiarios: gastos,

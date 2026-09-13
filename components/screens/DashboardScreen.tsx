@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { TopHeader } from "@/components/TopHeader";
 import { Card, EmptyState } from "@/components/ui/Card";
@@ -74,6 +75,26 @@ export function DashboardScreen({
     { name: "Despesas", valor: mes.despesaTotal, fill: "#f43f5e" },
   ];
   const saldoMes = mes.receitaTotal - mes.despesaTotal;
+
+  const proximoSemestre = useMemo(() => {
+    const idxAtual = series.findIndex((s) => s.isCurrent);
+    return idxAtual >= 0 ? series.slice(idxAtual, idxAtual + 6) : series.slice(0, 6);
+  }, [series]);
+
+  const resumoSemestre = useMemo(() => {
+    const cartoes = proximoSemestre.reduce((s, m) => s + m.despesaCartao, 0);
+    const fixas = proximoSemestre.reduce((s, m) => s + m.despesaFixa, 0);
+    const receitas = proximoSemestre.reduce((s, m) => s + m.receitaTotal, 0);
+    const comprometimento = receitas > 0 ? ((cartoes + fixas) / receitas) * 100 : 0;
+    return { cartoes, fixas, receitas, comprometimento };
+  }, [proximoSemestre]);
+
+  const comprometimentoTone =
+    resumoSemestre.comprometimento >= 80
+      ? { bg: "bg-coral-500/10", text: "text-coral-500" }
+      : resumoSemestre.comprometimento >= 50
+        ? { bg: "bg-sun-500/10", text: "text-sun-500" }
+        : { bg: "bg-brand-100", text: "text-brand-700" };
 
   return (
     <div>
@@ -151,6 +172,49 @@ export function DashboardScreen({
             </ResponsiveContainer>
           </div>
         </Card>
+
+        <div>
+          <div className="mb-2 flex items-center justify-between px-1">
+            <p className="text-sm font-bold text-ink-800">Resumo dos próximos 6 meses</p>
+            <Link href="/semestre" className="text-xs font-bold text-brand-600">
+              Ver mais →
+            </Link>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <StatCard
+              emoji="💳"
+              label="Cartões"
+              value={formatMoney(resumoSemestre.cartoes)}
+              tone="coral"
+              compact
+            />
+            <StatCard
+              emoji="🧺"
+              label="Fixas"
+              value={formatMoney(resumoSemestre.fixas)}
+              tone="sun"
+              compact
+            />
+            <StatCard
+              emoji="📈"
+              label="Crédito"
+              value={formatMoney(resumoSemestre.receitas)}
+              tone="brand"
+              compact
+            />
+          </div>
+          <Card className={`mt-2 flex items-center justify-between ${comprometimentoTone.bg}`}>
+            <div>
+              <p className={`text-xs font-bold ${comprometimentoTone.text}`}>Comprometimento de renda</p>
+              <p className="text-[11px] text-ink-500">
+                (cartões + contas fixas) ÷ créditos previstos nos próx. 6 meses
+              </p>
+            </div>
+            <p className={`text-xl font-extrabold ${comprometimentoTone.text}`}>
+              {resumoSemestre.comprometimento.toFixed(0)}%
+            </p>
+          </Card>
+        </div>
 
         <div>
           <p className="mb-2 px-1 text-sm font-bold text-ink-800">Vencimentos do mês</p>
