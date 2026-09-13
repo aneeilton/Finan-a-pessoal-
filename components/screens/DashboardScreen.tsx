@@ -16,8 +16,9 @@ type Vencimento = {
 };
 
 export function DashboardScreen({
+  saldoAtual,
+  previsaoFechamento,
   patrimonioLiquido,
-  saldoContas,
   totalAplicado,
   totalDividas,
   totalBens,
@@ -25,8 +26,9 @@ export function DashboardScreen({
   despesaMes,
   proximosVencimentos,
 }: {
+  saldoAtual: number;
+  previsaoFechamento: number;
   patrimonioLiquido: number;
-  saldoContas: number;
   totalAplicado: number;
   totalDividas: number;
   totalBens: number;
@@ -42,28 +44,36 @@ export function DashboardScreen({
 
   return (
     <div>
-      <TopHeader
-        emoji="👋"
-        title="Olá!"
-        subtitle="Aqui está o resumo das suas finanças"
-      />
+      <TopHeader emoji="👋" title="Olá!" subtitle="Aqui está o resumo das suas finanças" />
 
       <div className="space-y-4 px-4 pt-4">
         <Card className="bg-gradient-to-br from-brand-500 to-grape-500 text-white">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-white/80">
-            Patrimônio líquido
-          </p>
-          <p className="mt-1 text-3xl font-extrabold">{formatMoney(patrimonioLiquido)}</p>
-          <p className="mt-1 text-xs text-white/80">
-            Contas + investimentos + bens − dívidas
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-white/80">
+                Saldo atual
+              </p>
+              <p className="mt-1 text-2xl font-extrabold leading-tight">{formatMoney(saldoAtual)}</p>
+            </div>
+            <div className="border-l border-white/20 pl-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-white/80">
+                Previsão fim do mês
+              </p>
+              <p className="mt-1 text-2xl font-extrabold leading-tight">
+                {formatMoney(previsaoFechamento)}
+              </p>
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-white/80">
+            Previsão = saldo atual + receitas a receber − contas e cartões a pagar
           </p>
         </Card>
 
         <div className="grid grid-cols-2 gap-3">
-          <StatCard emoji="🏦" label="Em contas" value={formatMoney(saldoContas)} tone="sky" />
           <StatCard emoji="📊" label="Investido" value={formatMoney(totalAplicado)} tone="grape" />
           <StatCard emoji="🧾" label="Dívidas" value={formatMoney(totalDividas)} tone="coral" />
-          <StatCard emoji="🏡" label="Patrimônio" value={formatMoney(totalBens)} tone="sun" />
+          <StatCard emoji="🏡" label="Bens" value={formatMoney(totalBens)} tone="sun" />
+          <StatCard emoji="💎" label="Patrimônio líquido" value={formatMoney(patrimonioLiquido)} tone="sky" />
         </div>
 
         <Card>

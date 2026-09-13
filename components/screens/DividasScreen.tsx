@@ -11,10 +11,12 @@ export function DividasScreen({ initialDividas }: { initialDividas: Divida[] }) 
   const supabase = createClient();
   const [dividas, setDividas] = useState(initialDividas);
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [nome, setNome] = useState("");
   const [valor, setValor] = useState("");
   const [tipo, setTipo] = useState<DividaTipo>("curto");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const totalCurto = useMemo(
     () => dividas.filter((d) => d.tipo === "curto").reduce((s, d) => s + Number(d.valor), 0),
@@ -25,10 +27,44 @@ export function DividasScreen({ initialDividas }: { initialDividas: Divida[] }) 
     [dividas]
   );
 
-  async function addDivida(e: React.FormEvent) {
+  function closeForm() {
+    setOpen(false);
+    setEditingId(null);
+    setNome("");
+    setValor("");
+    setTipo("curto");
+    setError(null);
+  }
+
+  function startEdit(divida: Divida) {
+    setEditingId(divida.id);
+    setNome(divida.nome);
+    setValor(String(divida.valor));
+    setTipo(divida.tipo);
+    setError(null);
+    setOpen(true);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!nome.trim()) return;
     setSaving(true);
+    setError(null);
+
+    if (editingId) {
+      const { data, error } = await supabase
+        .from("dividas")
+        .update({ nome: nome.trim(), valor: Number(valor || 0), tipo })
+        .eq("id", editingId)
+        .select()
+        .single();
+      setSaving(false);
+      if (error) return setError(error.message);
+      setDividas((prev) => prev.map((d) => (d.id === editingId ? (data as Divida) : d)));
+      closeForm();
+      return;
+    }
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -38,13 +74,9 @@ export function DividasScreen({ initialDividas }: { initialDividas: Divida[] }) 
       .select()
       .single();
     setSaving(false);
-    if (!error && data) {
-      setDividas((prev) => [...prev, data as Divida]);
-      setNome("");
-      setValor("");
-      setTipo("curto");
-      setOpen(false);
-    }
+    if (error) return setError(error.message);
+    setDividas((prev) => [...prev, data as Divida]);
+    closeForm();
   }
 
   async function removeDivida(id: string) {
@@ -81,7 +113,11 @@ export function DividasScreen({ initialDividas }: { initialDividas: Divida[] }) 
         ) : (
           <div className="space-y-2">
             {dividas.map((divida) => (
-              <Card key={divida.id} className="flex items-center justify-between">
+              <Card
+                key={divida.id}
+                className="flex cursor-pointer items-center justify-between"
+                onClick={() => startEdit(divida)}
+              >
                 <div>
                   <p className="font-semibold text-ink-800">{divida.nome}</p>
                   <span
@@ -97,7 +133,10 @@ export function DividasScreen({ initialDividas }: { initialDividas: Divida[] }) 
                 <div className="flex items-center gap-3">
                   <p className="font-extrabold text-ink-800">{formatMoney(Number(divida.valor))}</p>
                   <button
-                    onClick={() => removeDivida(divida.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeDivida(divida.id);
+                    }}
                     className="text-ink-400 hover:text-coral-500"
                     aria-label="Remover dívida"
                   >
@@ -110,7 +149,10 @@ export function DividasScreen({ initialDividas }: { initialDividas: Divida[] }) 
         )}
 
         {open ? (
-          <form onSubmit={addDivida} className="space-y-2 rounded-3xl bg-white p-4 shadow-card">
+          <form onSubmit={handleSubmit} className="space-y-2 rounded-3xl bg-white p-4 shadow-card">
+            <p className="text-xs font-bold uppercase tracking-wide text-ink-400">
+              {editingId ? "Editar dívida" : "Nova dívida"}
+            </p>
             <input
               autoFocus
               placeholder="Nome da dívida"
@@ -136,10 +178,11 @@ export function DividasScreen({ initialDividas }: { initialDividas: Divida[] }) 
                 <option value="longo">Longo prazo</option>
               </select>
             </div>
+            {error && <p className="text-xs font-medium text-coral-500">Erro: {error}</p>}
             <div className="flex gap-2 pt-1">
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={closeForm}
                 className="flex-1 rounded-2xl bg-ink-100 py-2.5 text-sm font-semibold text-ink-700"
               >
                 Cancelar

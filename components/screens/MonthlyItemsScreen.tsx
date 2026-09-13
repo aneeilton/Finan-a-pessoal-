@@ -54,10 +54,12 @@ export function MonthlyItemsScreen({
   const [saveErrors, setSaveErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [nome, setNome] = useState("");
   const [dia, setDia] = useState("");
   const [expectativa, setExpectativa] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,10 +99,48 @@ export function MonthlyItemsScreen({
     return Number(draft || 0) !== Number(saved);
   }
 
-  async function addItem(e: React.FormEvent) {
+  function closeForm() {
+    setOpen(false);
+    setEditingId(null);
+    setNome("");
+    setDia("");
+    setExpectativa(false);
+    setFormError(null);
+  }
+
+  function startEdit(item: Item) {
+    setEditingId(item.id);
+    setNome(item.nome);
+    setDia(item.dia_vencimento ? String(item.dia_vencimento) : "");
+    setExpectativa(item.expectativa);
+    setFormError(null);
+    setOpen(true);
+  }
+
+  async function submitItem(e: React.FormEvent) {
     e.preventDefault();
     if (!nome.trim()) return;
     setSaving(true);
+    setFormError(null);
+
+    if (editingId) {
+      const { data, error } = await supabase
+        .from("items")
+        .update({
+          nome: nome.trim(),
+          dia_vencimento: showDia && dia ? Number(dia) : null,
+          expectativa: showExpectativa ? expectativa : false,
+        })
+        .eq("id", editingId)
+        .select()
+        .single();
+      setSaving(false);
+      if (error) return setFormError(error.message);
+      setItems((prev) => prev.map((i) => (i.id === editingId ? (data as Item) : i)));
+      closeForm();
+      return;
+    }
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -116,13 +156,9 @@ export function MonthlyItemsScreen({
       .select()
       .single();
     setSaving(false);
-    if (!error && data) {
-      setItems((prev) => [...prev, data as Item]);
-      setNome("");
-      setDia("");
-      setExpectativa(false);
-      setOpen(false);
-    }
+    if (error) return setFormError(error.message);
+    setItems((prev) => [...prev, data as Item]);
+    closeForm();
   }
 
   async function removeItem(id: string) {
@@ -266,13 +302,22 @@ export function MonthlyItemsScreen({
                         )}
                       </div>
                     </div>
-                    <button
-                      onClick={() => removeItem(item.id)}
-                      className="shrink-0 text-ink-400 hover:text-coral-500"
-                      aria-label="Remover"
-                    >
-                      ✕
-                    </button>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button
+                        onClick={() => startEdit(item)}
+                        className="text-ink-400 hover:text-brand-600"
+                        aria-label="Editar"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={() => removeItem(item.id)}
+                        className="text-ink-400 hover:text-coral-500"
+                        aria-label="Remover"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
 
                   <div className="mt-3 flex items-center gap-2">
@@ -326,7 +371,10 @@ export function MonthlyItemsScreen({
         )}
 
         {open ? (
-          <form onSubmit={addItem} className="space-y-2 rounded-3xl bg-white p-4 shadow-card">
+          <form onSubmit={submitItem} className="space-y-2 rounded-3xl bg-white p-4 shadow-card">
+            <p className="text-xs font-bold uppercase tracking-wide text-ink-400">
+              {editingId ? "Editar" : "Novo item"}
+            </p>
             <input
               autoFocus
               placeholder="Nome"
@@ -356,10 +404,11 @@ export function MonthlyItemsScreen({
                 É uma expectativa (não garantido)
               </label>
             )}
+            {formError && <p className="text-xs font-medium text-coral-500">Erro: {formError}</p>}
             <div className="flex gap-2 pt-1">
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={closeForm}
                 className="flex-1 rounded-2xl bg-ink-100 py-2.5 text-sm font-semibold text-ink-700"
               >
                 Cancelar

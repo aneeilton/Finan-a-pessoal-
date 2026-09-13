@@ -11,10 +11,12 @@ export function ContasScreen({ initialContas }: { initialContas: Conta[] }) {
   const supabase = createClient();
   const [contas, setContas] = useState(initialContas);
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [nome, setNome] = useState("");
   const [corrente, setCorrente] = useState("");
   const [aplicado, setAplicado] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const totalCorrente = useMemo(
     () => contas.reduce((sum, c) => sum + Number(c.saldo_corrente), 0),
@@ -25,10 +27,48 @@ export function ContasScreen({ initialContas }: { initialContas: Conta[] }) {
     [contas]
   );
 
-  async function addConta(e: React.FormEvent) {
+  function closeForm() {
+    setOpen(false);
+    setEditingId(null);
+    setNome("");
+    setCorrente("");
+    setAplicado("");
+    setError(null);
+  }
+
+  function startEdit(conta: Conta) {
+    setEditingId(conta.id);
+    setNome(conta.nome);
+    setCorrente(String(conta.saldo_corrente));
+    setAplicado(String(conta.saldo_aplicado));
+    setError(null);
+    setOpen(true);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!nome.trim()) return;
     setSaving(true);
+    setError(null);
+
+    if (editingId) {
+      const { data, error } = await supabase
+        .from("contas")
+        .update({
+          nome: nome.trim(),
+          saldo_corrente: Number(corrente || 0),
+          saldo_aplicado: Number(aplicado || 0),
+        })
+        .eq("id", editingId)
+        .select()
+        .single();
+      setSaving(false);
+      if (error) return setError(error.message);
+      setContas((prev) => prev.map((c) => (c.id === editingId ? (data as Conta) : c)));
+      closeForm();
+      return;
+    }
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -43,13 +83,9 @@ export function ContasScreen({ initialContas }: { initialContas: Conta[] }) {
       .select()
       .single();
     setSaving(false);
-    if (!error && data) {
-      setContas((prev) => [...prev, data as Conta]);
-      setNome("");
-      setCorrente("");
-      setAplicado("");
-      setOpen(false);
-    }
+    if (error) return setError(error.message);
+    setContas((prev) => [...prev, data as Conta]);
+    closeForm();
   }
 
   async function removeConta(id: string) {
@@ -86,7 +122,11 @@ export function ContasScreen({ initialContas }: { initialContas: Conta[] }) {
         ) : (
           <div className="space-y-2">
             {contas.map((conta) => (
-              <Card key={conta.id} className="flex items-center justify-between">
+              <Card
+                key={conta.id}
+                className="flex cursor-pointer items-center justify-between"
+                onClick={() => startEdit(conta)}
+              >
                 <div>
                   <p className="font-semibold text-ink-800">{conta.nome}</p>
                   <p className="text-xs text-ink-400">
@@ -98,7 +138,10 @@ export function ContasScreen({ initialContas }: { initialContas: Conta[] }) {
                     {formatMoney(Number(conta.saldo_corrente))}
                   </p>
                   <button
-                    onClick={() => removeConta(conta.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeConta(conta.id);
+                    }}
                     className="text-ink-400 hover:text-coral-500"
                     aria-label="Remover conta"
                   >
@@ -111,7 +154,10 @@ export function ContasScreen({ initialContas }: { initialContas: Conta[] }) {
         )}
 
         {open ? (
-          <form onSubmit={addConta} className="space-y-2 rounded-3xl bg-white p-4 shadow-card">
+          <form onSubmit={handleSubmit} className="space-y-2 rounded-3xl bg-white p-4 shadow-card">
+            <p className="text-xs font-bold uppercase tracking-wide text-ink-400">
+              {editingId ? "Editar conta" : "Nova conta"}
+            </p>
             <input
               autoFocus
               placeholder="Nome do banco"
@@ -137,10 +183,11 @@ export function ContasScreen({ initialContas }: { initialContas: Conta[] }) {
                 className="w-full rounded-2xl border border-ink-100 bg-ink-50 px-4 py-2.5 text-sm outline-none focus:border-brand-400"
               />
             </div>
+            {error && <p className="text-xs font-medium text-coral-500">Erro: {error}</p>}
             <div className="flex gap-2 pt-1">
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={closeForm}
                 className="flex-1 rounded-2xl bg-ink-100 py-2.5 text-sm font-semibold text-ink-700"
               >
                 Cancelar

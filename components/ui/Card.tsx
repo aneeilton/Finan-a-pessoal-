@@ -1,12 +1,14 @@
 export function Card({
   children,
   className = "",
+  onClick,
 }: {
   children: React.ReactNode;
   className?: string;
+  onClick?: () => void;
 }) {
   return (
-    <div className={`rounded-3xl bg-white p-4 shadow-card ${className}`}>
+    <div className={`rounded-3xl bg-white p-4 shadow-card ${className}`} onClick={onClick}>
       {children}
     </div>
   );

@@ -73,6 +73,17 @@ async function renderDashboard() {
     .reduce((s, l) => s + Number(l.valor), 0);
   const despesaMes = cartoesMes + fixasMes + variaveis;
 
+  const receitasAReceber = lancamentos
+    .filter((l) => itemsById.get(l.item_id)?.tipo === "receita" && !l.pago)
+    .reduce((s, l) => s + Number(l.valor), 0);
+  const despesasAPagar =
+    lancamentos
+      .filter(
+        (l) => (itemsById.get(l.item_id)?.tipo === "cartao" || itemsById.get(l.item_id)?.tipo === "fixa") && !l.pago
+      )
+      .reduce((s, l) => s + Number(l.valor), 0) + variaveis;
+  const previsaoFechamento = saldoContas + receitasAReceber - despesasAPagar;
+
   const proximosVencimentos = (items ?? [])
     .filter((i) => (i.tipo === "cartao" || i.tipo === "fixa") && i.dia_vencimento)
     .map((i) => {
@@ -92,8 +103,9 @@ async function renderDashboard() {
 
   return (
     <DashboardScreen
+      saldoAtual={saldoContas}
+      previsaoFechamento={previsaoFechamento}
       patrimonioLiquido={saldoContas + totalAplicado + totalBens - totalDividas}
-      saldoContas={saldoContas}
       totalAplicado={totalAplicado}
       totalDividas={totalDividas}
       totalBens={totalBens}
