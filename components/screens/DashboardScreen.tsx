@@ -1,71 +1,110 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { TopHeader } from "@/components/TopHeader";
 import { Card, EmptyState } from "@/components/ui/Card";
 import { StatCard } from "@/components/ui/StatCard";
-import { formatMoney } from "@/lib/format";
-
-type Vencimento = {
-  id: string;
-  nome: string;
-  tipo: "cartao" | "fixa";
-  dia: number;
-  valor: number;
-  pago: boolean;
-};
+import { DespesaDiariaCard } from "@/components/screens/DespesaDiariaCard";
+import { MonthSelector } from "@/components/ui/MonthSelector";
+import { buildMonthlyProjection } from "@/lib/projection";
+import { currentCompetencia, formatMoney } from "@/lib/format";
+import type { GastoDiario, Item, Lancamento } from "@/lib/types";
 
 export function DashboardScreen({
-  saldoAtual,
-  previsaoFechamento,
-  patrimonioLiquido,
+  items,
+  lancamentos,
+  initialGastosDiarios,
+  saldoContas,
   totalAplicado,
   totalDividas,
   totalBens,
-  receitaMes,
-  despesaMes,
-  proximosVencimentos,
 }: {
-  saldoAtual: number;
-  previsaoFechamento: number;
-  patrimonioLiquido: number;
+  items: Item[];
+  lancamentos: Lancamento[];
+  initialGastosDiarios: GastoDiario[];
+  saldoContas: number;
   totalAplicado: number;
   totalDividas: number;
   totalBens: number;
-  receitaMes: number;
-  despesaMes: number;
-  proximosVencimentos: Vencimento[];
 }) {
+  const [competencia, setCompetencia] = useState(currentCompetencia());
+  const [gastosDiarios, setGastosDiarios] = useState(initialGastosDiarios);
+
+  const saldoAtual = saldoContas + totalAplicado;
+  const patrimonioLiquido = saldoAtual + totalBens - totalDividas;
+
+  const series = useMemo(
+    () =>
+      buildMonthlyProjection({
+        saldoBase: saldoAtual,
+        items,
+        lancamentos,
+        gastosDiarios,
+        monthsBefore: 12,
+        monthsAfter: 24,
+      }),
+    [saldoAtual, items, lancamentos, gastosDiarios]
+  );
+
+  const mes = series.find((s) => s.competencia === competencia) ?? series[0];
+
+  const proximosVencimentos = useMemo(
+    () =>
+      items
+        .filter((i) => (i.tipo === "cartao" || i.tipo === "fixa") && i.dia_vencimento)
+        .map((i) => {
+          const lanc = lancamentos.find((l) => l.item_id === i.id && l.competencia === competencia);
+          return {
+            id: i.id,
+            nome: i.nome,
+            tipo: i.tipo as "cartao" | "fixa",
+            dia: i.dia_vencimento as number,
+            valor: Number(lanc?.valor ?? 0),
+            pago: lanc?.pago ?? false,
+          };
+        })
+        .filter((v) => !v.pago && v.valor > 0)
+        .sort((a, b) => a.dia - b.dia),
+    [items, lancamentos, competencia]
+  );
+
   const chartData = [
-    { name: "Receitas", valor: receitaMes, fill: "#14b8a6" },
-    { name: "Despesas", valor: despesaMes, fill: "#f43f5e" },
+    { name: "Receitas", valor: mes.receitaTotal, fill: "#14b8a6" },
+    { name: "Despesas", valor: mes.despesaTotal, fill: "#f43f5e" },
   ];
-  const saldoMes = receitaMes - despesaMes;
+  const saldoMes = mes.receitaTotal - mes.despesaTotal;
 
   return (
     <div>
       <TopHeader emoji="👋" title="Olá!" subtitle="Aqui está o resumo das suas finanças" />
 
       <div className="space-y-4 px-4 pt-4">
+        <MonthSelector competencia={competencia} onChange={setCompetencia} />
+
         <Card className="bg-gradient-to-br from-brand-500 to-grape-500 text-white">
           <div className="grid grid-cols-2 gap-3">
-            <div>
+            <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-white/80">
-                Saldo atual
+                {mes.isCurrent ? "Saldo atual" : "Saldo inicial do mês"}
               </p>
-              <p className="mt-1 text-2xl font-extrabold leading-tight">{formatMoney(saldoAtual)}</p>
+              <p className="mt-1 whitespace-nowrap text-lg font-extrabold leading-tight">
+                {formatMoney(mes.saldoInicial)}
+              </p>
             </div>
-            <div className="border-l border-white/20 pl-3">
+            <div className="min-w-0 border-l border-white/20 pl-3">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-white/80">
                 Previsão fim do mês
               </p>
-              <p className="mt-1 text-2xl font-extrabold leading-tight">
-                {formatMoney(previsaoFechamento)}
+              <p className="mt-1 whitespace-nowrap text-lg font-extrabold leading-tight">
+                {formatMoney(mes.saldoFinal)}
               </p>
             </div>
           </div>
           <p className="mt-2 text-xs text-white/80">
-            Previsão = saldo atual + receitas a receber − contas e cartões a pagar
+            {mes.isCurrent
+              ? "Saldo atual + receitas a receber − contas e cartões a pagar"
+              : "Saldo inicial do mês + receitas a receber − contas e cartões a pagar"}
           </p>
         </Card>
 
@@ -75,6 +114,12 @@ export function DashboardScreen({
           <StatCard emoji="🏡" label="Bens" value={formatMoney(totalBens)} tone="sun" />
           <StatCard emoji="💎" label="Patrimônio líquido" value={formatMoney(patrimonioLiquido)} tone="sky" />
         </div>
+
+        <DespesaDiariaCard
+          competencia={competencia}
+          gastosDiarios={gastosDiarios}
+          onChange={setGastosDiarios}
+        />
 
         <Card>
           <div className="mb-2 flex items-center justify-between">
@@ -108,9 +153,9 @@ export function DashboardScreen({
         </Card>
 
         <div>
-          <p className="mb-2 px-1 text-sm font-bold text-ink-800">Próximos vencimentos</p>
+          <p className="mb-2 px-1 text-sm font-bold text-ink-800">Vencimentos do mês</p>
           {proximosVencimentos.length === 0 ? (
-            <EmptyState emoji="🎉" title="Nada vencendo em breve" />
+            <EmptyState emoji="🎉" title="Nada vencendo neste mês" />
           ) : (
             <div className="space-y-2">
               {proximosVencimentos.map((v) => (

@@ -11,19 +11,5 @@ export default async function MaisPage() {
 
   if (userError) return <PageError error={userError} />;
 
-  const { data: config, error } = await supabase
-    .from("config")
-    .select("*")
-    .eq("user_id", user?.id)
-    .maybeSingle();
-
-  if (error) return <PageError error={error} />;
-
-  return (
-    <MaisScreen
-      initialVariaveis={Number(config?.variaveis ?? 0)}
-      isAnonymous={user?.is_anonymous ?? true}
-      email={user?.email ?? null}
-    />
-  );
+  return <MaisScreen isAnonymous={user?.is_anonymous ?? true} email={user?.email ?? null} />;
 }

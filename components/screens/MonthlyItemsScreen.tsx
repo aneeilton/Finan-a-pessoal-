@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { TopHeader } from "@/components/TopHeader";
 import { Card, EmptyState } from "@/components/ui/Card";
-import { currentCompetencia, formatMoney, monthLabel, shiftCompetencia } from "@/lib/format";
+import { MonthSelector } from "@/components/ui/MonthSelector";
+import { currentCompetencia, formatMoney, monthLabel } from "@/lib/format";
 import type { Item, ItemTipo, Lancamento } from "@/lib/types";
 
 type Tone = "brand" | "sky" | "sun" | "coral" | "grape";
@@ -254,27 +255,7 @@ export function MonthlyItemsScreen({
       />
 
       <div className="space-y-4 px-4 pt-4">
-        <div className="flex items-center justify-between rounded-2xl bg-white px-3 py-2 shadow-card">
-          <button
-            onClick={() => setCompetencia((c) => shiftCompetencia(c, -1))}
-            className="h-8 w-8 rounded-xl bg-ink-50 text-ink-500"
-            aria-label="Mês anterior"
-          >
-            ‹
-          </button>
-          <span className="text-sm font-bold capitalize text-ink-800">
-            {new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(
-              new Date(competencia)
-            )}
-          </span>
-          <button
-            onClick={() => setCompetencia((c) => shiftCompetencia(c, 1))}
-            className="h-8 w-8 rounded-xl bg-ink-50 text-ink-500"
-            aria-label="Próximo mês"
-          >
-            ›
-          </button>
-        </div>
+        <MonthSelector competencia={competencia} onChange={setCompetencia} />
 
         {items.length === 0 ? (
           <EmptyState emoji={emoji} title="Nada por aqui ainda" hint="Adicione o primeiro item" />

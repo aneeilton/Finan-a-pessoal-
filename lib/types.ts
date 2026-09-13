@@ -52,3 +52,13 @@ export type Config = {
   user_id: string;
   variaveis: number;
 };
+
+export type GastoDiario = {
+  id: string;
+  user_id: string;
+  data: string; // YYYY-MM-DD
+  categoria: string;
+  descricao: string | null;
+  valor: number;
+  created_at: string;
+};
