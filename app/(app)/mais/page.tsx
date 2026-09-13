@@ -11,5 +11,11 @@ export default async function MaisPage() {
 
   if (userError) return <PageError error={userError} />;
 
-  return <MaisScreen isAnonymous={user?.is_anonymous ?? true} email={user?.email ?? null} />;
+  return (
+    <MaisScreen
+      isAnonymous={user?.is_anonymous ?? true}
+      email={user?.email ?? null}
+      userId={user?.id ?? null}
+    />
+  );
 }
