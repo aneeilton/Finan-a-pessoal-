@@ -21,10 +21,12 @@ export function StatCard({
 }) {
   return (
     <div className={`flex min-w-0 flex-col gap-1 rounded-2xl p-3 ${TONES[tone]}`}>
-      <span className="text-lg leading-none">{emoji}</span>
-      <span className="truncate text-[10px] font-semibold uppercase tracking-wide opacity-80">
-        {label}
-      </span>
+      <div className="flex items-center gap-1.5">
+        <span className="shrink-0 text-base leading-none">{emoji}</span>
+        <span className="truncate text-[10px] font-semibold uppercase tracking-wide opacity-80">
+          {label}
+        </span>
+      </div>
       <span
         className={`whitespace-nowrap font-extrabold leading-tight ${compact ? "text-sm" : "text-base"}`}
       >
