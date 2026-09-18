@@ -10,7 +10,7 @@ export default async function DashboardPage() {
   return (
     <DashboardScreen
       items={data.items}
-      lancamentos={data.lancamentos}
+      initialLancamentos={data.lancamentos}
       initialGastosDiarios={data.gastosDiarios}
       saldoContas={data.saldoContas}
       totalAplicado={data.totalAplicado}

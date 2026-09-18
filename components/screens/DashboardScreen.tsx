@@ -3,7 +3,17 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
-import { CreditCard, FileWarning, Gem, PartyPopper, PiggyBank, Repeat, TrendingUp } from "lucide-react";
+import {
+  Check,
+  CreditCard,
+  FileWarning,
+  Gem,
+  PartyPopper,
+  PiggyBank,
+  Repeat,
+  TrendingUp,
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 import { TopHeader } from "@/components/TopHeader";
 import { Card, EmptyState } from "@/components/ui/Card";
 import { StatCard } from "@/components/ui/StatCard";
@@ -15,7 +25,7 @@ import type { GastoDiario, Item, Lancamento } from "@/lib/types";
 
 export function DashboardScreen({
   items,
-  lancamentos,
+  initialLancamentos,
   initialGastosDiarios,
   saldoContas,
   totalAplicado,
@@ -23,15 +33,19 @@ export function DashboardScreen({
   totalBens,
 }: {
   items: Item[];
-  lancamentos: Lancamento[];
+  initialLancamentos: Lancamento[];
   initialGastosDiarios: GastoDiario[];
   saldoContas: number;
   totalAplicado: number;
   totalDividas: number;
   totalBens: number;
 }) {
+  const supabase = createClient();
   const [competencia, setCompetencia] = useState(currentCompetencia());
   const [gastosDiarios, setGastosDiarios] = useState(initialGastosDiarios);
+  const [lancamentos, setLancamentos] = useState(initialLancamentos);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [toggleErrors, setToggleErrors] = useState<Record<string, string>>({});
 
   const saldoAtual = saldoContas + totalAplicado;
   const patrimonioLiquido = saldoAtual + totalBens - totalDividas;
@@ -51,25 +65,87 @@ export function DashboardScreen({
 
   const mes = series.find((s) => s.competencia === competencia) ?? series[0];
 
-  const proximosVencimentos = useMemo(
+  const itemsById = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
+
+  const receitasDoMes = useMemo(
     () =>
       items
-        .filter((i) => (i.tipo === "cartao" || i.tipo === "fixa") && i.dia_vencimento)
+        .filter((i) => i.tipo === "receita")
+        .map((i) => {
+          const lanc = lancamentos.find((l) => l.item_id === i.id && l.competencia === competencia);
+          return { id: i.id, nome: i.nome, valor: Number(lanc?.valor ?? 0), pago: lanc?.pago ?? false };
+        })
+        .filter((v) => v.valor > 0)
+        .sort((a, b) => a.nome.localeCompare(b.nome)),
+    [items, lancamentos, competencia]
+  );
+
+  const despesasDoMes = useMemo(
+    () =>
+      items
+        .filter((i) => i.tipo === "cartao" || i.tipo === "fixa")
         .map((i) => {
           const lanc = lancamentos.find((l) => l.item_id === i.id && l.competencia === competencia);
           return {
             id: i.id,
             nome: i.nome,
             tipo: i.tipo as "cartao" | "fixa",
-            dia: i.dia_vencimento as number,
+            dia: i.dia_vencimento,
             valor: Number(lanc?.valor ?? 0),
             pago: lanc?.pago ?? false,
           };
         })
-        .filter((v) => !v.pago && v.valor > 0)
-        .sort((a, b) => a.dia - b.dia),
+        .filter((v) => v.valor > 0)
+        .sort((a, b) => (a.dia ?? 99) - (b.dia ?? 99)),
     [items, lancamentos, competencia]
   );
+
+  async function togglePago(itemId: string) {
+    setTogglingId(itemId);
+    setToggleErrors((prev) => {
+      const next = { ...prev };
+      delete next[itemId];
+      return next;
+    });
+
+    const existing = lancamentos.find((l) => l.item_id === itemId && l.competencia === competencia);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setTogglingId(null);
+      setToggleErrors((prev) => ({ ...prev, [itemId]: "Sessão não encontrada" }));
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("lancamentos")
+      .upsert(
+        {
+          id: existing?.id,
+          item_id: itemId,
+          user_id: user.id,
+          competencia,
+          valor: existing?.valor ?? 0,
+          pago: !(existing?.pago ?? false),
+        },
+        { onConflict: "item_id,competencia" }
+      )
+      .select()
+      .single();
+
+    setTogglingId(null);
+    if (error || !data) {
+      setToggleErrors((prev) => ({ ...prev, [itemId]: error?.message ?? "Falha ao salvar" }));
+      return;
+    }
+    setLancamentos((prev) => {
+      const found = prev.some((l) => l.id === (data as Lancamento).id);
+      return found
+        ? prev.map((l) => (l.id === (data as Lancamento).id ? (data as Lancamento) : l))
+        : [...prev, data as Lancamento];
+    });
+  }
 
   const chartData = [
     { name: "Receitas", valor: mes.receitaTotal, fill: "#2FA084" },
@@ -218,34 +294,94 @@ export function DashboardScreen({
         </div>
 
         <div>
-          <p className="mb-2 px-1 text-sm font-bold text-ink-800">Vencimentos do mês</p>
-          {proximosVencimentos.length === 0 ? (
-            <EmptyState icon={PartyPopper} title="Nada vencendo neste mês" />
+          <p className="mb-2 px-1 text-sm font-bold text-ink-800">Lançamentos do mês</p>
+          {receitasDoMes.length === 0 && despesasDoMes.length === 0 ? (
+            <EmptyState icon={PartyPopper} title="Nada lançado neste mês" />
           ) : (
-            <div className="space-y-2">
-              {proximosVencimentos.map((v) => {
-                const VencIcon = v.tipo === "cartao" ? CreditCard : Repeat;
-                return (
-                  <Card key={v.id} className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={`flex h-9 w-9 items-center justify-center rounded-2xl ${
-                          v.tipo === "cartao" ? "bg-coral-500/10 text-coral-500" : "bg-sun-500/10 text-sun-500"
-                        }`}
-                      >
-                        <VencIcon size={16} strokeWidth={2} />
-                      </span>
-                      <div>
-                        <p className="text-sm font-semibold text-ink-800">{v.nome}</p>
-                        <p className="text-xs text-ink-400">Vence dia {v.dia}</p>
+            <div className="space-y-3">
+              {receitasDoMes.length > 0 && (
+                <div className="space-y-2">
+                  <p className="px-1 text-[11px] font-bold uppercase tracking-wide text-ink-400">
+                    A receber
+                  </p>
+                  {receitasDoMes.map((r) => (
+                    <Card key={r.id} className="flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-700">
+                          <TrendingUp size={16} strokeWidth={2} />
+                        </span>
+                        <p className={`truncate text-sm font-semibold ${r.pago ? "text-ink-400" : "text-ink-800"}`}>
+                          {r.nome}
+                        </p>
                       </div>
-                    </div>
-                    <p className="font-extrabold text-ink-800 [font-variant-numeric:tabular-nums]">
-                      {formatMoney(v.valor)}
-                    </p>
-                  </Card>
-                );
-              })}
+                      <div className="flex shrink-0 items-center gap-2">
+                        <p className="font-extrabold text-ink-800 [font-variant-numeric:tabular-nums]">
+                          {formatMoney(r.valor)}
+                        </p>
+                        <button
+                          onClick={() => togglePago(r.id)}
+                          disabled={togglingId === r.id}
+                          className={`flex items-center gap-1 whitespace-nowrap rounded-xl px-2.5 py-1.5 text-xs font-bold transition ${
+                            r.pago ? "bg-brand-600 text-white" : "bg-ink-100 text-ink-500"
+                          }`}
+                        >
+                          {r.pago && <Check size={12} strokeWidth={2.5} />}
+                          Recebido
+                        </button>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+
+              {despesasDoMes.length > 0 && (
+                <div className="space-y-2">
+                  <p className="px-1 text-[11px] font-bold uppercase tracking-wide text-ink-400">A pagar</p>
+                  {despesasDoMes.map((v) => {
+                    const VencIcon = v.tipo === "cartao" ? CreditCard : Repeat;
+                    return (
+                      <Card key={v.id} className="flex items-center justify-between gap-2">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span
+                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl ${
+                              v.tipo === "cartao" ? "bg-coral-500/10 text-coral-500" : "bg-sun-500/10 text-sun-500"
+                            }`}
+                          >
+                            <VencIcon size={16} strokeWidth={2} />
+                          </span>
+                          <div className="min-w-0">
+                            <p className={`truncate text-sm font-semibold ${v.pago ? "text-ink-400" : "text-ink-800"}`}>
+                              {v.nome}
+                            </p>
+                            {v.dia && <p className="text-xs text-ink-400">Vence dia {v.dia}</p>}
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <p className="font-extrabold text-ink-800 [font-variant-numeric:tabular-nums]">
+                            {formatMoney(v.valor)}
+                          </p>
+                          <button
+                            onClick={() => togglePago(v.id)}
+                            disabled={togglingId === v.id}
+                            className={`flex items-center gap-1 whitespace-nowrap rounded-xl px-2.5 py-1.5 text-xs font-bold transition ${
+                              v.pago ? "bg-brand-600 text-white" : "bg-ink-100 text-ink-500"
+                            }`}
+                          >
+                            {v.pago && <Check size={12} strokeWidth={2.5} />}
+                            Pago
+                          </button>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+
+              {Object.entries(toggleErrors).map(([id, msg]) => (
+                <p key={id} className="px-1 text-xs font-medium text-coral-500">
+                  {itemsById.get(id)?.nome ?? "Item"}: {msg}
+                </p>
+              ))}
             </div>
           )}
         </div>
