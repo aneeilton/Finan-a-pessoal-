@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { MonthlyItemsScreen } from "@/components/screens/MonthlyItemsScreen";
 import { PageError } from "@/components/ui/PageError";
 import { currentCompetencia } from "@/lib/format";
+import { loadContaPadrao } from "@/lib/contaPadrao";
 
 export default async function CartoesPage() {
   const supabase = createClient();
@@ -24,6 +25,8 @@ export default async function CartoesPage() {
 
   if (lancError) return <PageError error={lancError} />;
 
+  const { contas, contaPadraoId } = await loadContaPadrao();
+
   return (
     <MonthlyItemsScreen
       tipo="cartao"
@@ -34,6 +37,8 @@ export default async function CartoesPage() {
       showExpectativa={false}
       initialItems={items ?? []}
       initialLancamentos={lancamentos ?? []}
+      initialContas={contas}
+      contaPadraoId={contaPadraoId}
     />
   );
 }

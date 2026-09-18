@@ -9,6 +9,7 @@ export type FinanceSnapshot = {
   lancamentos: Lancamento[];
   gastosDiarios: GastoDiario[];
   variaveis: number;
+  contaPadraoId: string | null;
   saldoContas: number;
   totalAplicado: number;
   totalDividas: number;
@@ -67,6 +68,7 @@ export async function loadFinanceSnapshot(): Promise<FinanceSnapshotResult> {
       lancamentos,
       gastosDiarios: (gastosRes.data ?? []) as GastoDiario[],
       variaveis: Number(configRes.data?.[0]?.variaveis ?? 0),
+      contaPadraoId: configRes.data?.[0]?.conta_padrao_id ?? null,
       saldoContas: contas.reduce((s, c) => s + Number(c.saldo_corrente), 0),
       totalAplicado: contas.reduce((s, c) => s + Number(c.saldo_aplicado), 0),
       totalDividas: dividas.reduce((s, d) => s + Number(d.valor), 0),

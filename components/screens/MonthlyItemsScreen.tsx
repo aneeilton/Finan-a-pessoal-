@@ -7,7 +7,7 @@ import { TopHeader } from "@/components/TopHeader";
 import { Card, EmptyState } from "@/components/ui/Card";
 import { MonthSelector } from "@/components/ui/MonthSelector";
 import { currentCompetencia, formatMoney, monthLabel } from "@/lib/format";
-import type { Item, ItemTipo, Lancamento } from "@/lib/types";
+import type { Conta, Item, ItemTipo, Lancamento } from "@/lib/types";
 
 type Tone = "brand" | "sky" | "sun" | "coral" | "grape";
 
@@ -39,6 +39,8 @@ export function MonthlyItemsScreen({
   showExpectativa,
   initialItems,
   initialLancamentos,
+  initialContas,
+  contaPadraoId,
 }: {
   tipo: ItemTipo;
   title: string;
@@ -48,11 +50,14 @@ export function MonthlyItemsScreen({
   showExpectativa: boolean;
   initialItems: Item[];
   initialLancamentos: Lancamento[];
+  initialContas: Conta[];
+  contaPadraoId: string | null;
 }) {
   const supabase = createClient();
   const tones = TONE_CLASSES[tone];
   const icon = TIPO_ICON[tipo];
   const [items, setItems] = useState(initialItems);
+  const [contas, setContas] = useState(initialContas);
   const [competencia, setCompetencia] = useState(currentCompetencia());
   const [lancamentos, setLancamentos] = useState<Record<string, Lancamento>>(
     Object.fromEntries(initialLancamentos.map((l) => [l.item_id, l]))
@@ -226,12 +231,30 @@ export function MonthlyItemsScreen({
     }, 1800);
   }
 
+  async function ajustarSaldoConta(delta: number) {
+    if (!contaPadraoId || delta === 0) return;
+    const conta = contas.find((c) => c.id === contaPadraoId);
+    if (!conta) return;
+    const novoSaldo = Number(conta.saldo_corrente) + delta;
+    const { data, error } = await supabase
+      .from("contas")
+      .update({ saldo_corrente: novoSaldo })
+      .eq("id", contaPadraoId)
+      .select()
+      .single();
+    if (!error && data) {
+      setContas((prev) => prev.map((c) => (c.id === contaPadraoId ? (data as Conta) : c)));
+    }
+  }
+
   async function togglePago(item: Item) {
     const existing = lancamentos[item.id];
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return;
+    const valor = existing?.valor ?? Number(drafts[item.id] || 0);
+    const novoPago = !(existing?.pago ?? false);
     const { data, error } = await supabase
       .from("lancamentos")
       .upsert(
@@ -240,8 +263,8 @@ export function MonthlyItemsScreen({
           item_id: item.id,
           user_id: user.id,
           competencia,
-          valor: existing?.valor ?? Number(drafts[item.id] || 0),
-          pago: !(existing?.pago ?? false),
+          valor,
+          pago: novoPago,
         },
         { onConflict: "item_id,competencia" }
       )
@@ -253,6 +276,11 @@ export function MonthlyItemsScreen({
     }
     setLancamentos((prev) => ({ ...prev, [item.id]: data as Lancamento }));
     setDrafts((prev) => ({ ...prev, [item.id]: String((data as Lancamento).valor) }));
+
+    if (valor > 0) {
+      const sinal = tipo === "receita" ? 1 : -1;
+      await ajustarSaldoConta(novoPago ? sinal * valor : -sinal * valor);
+    }
   }
 
   return (

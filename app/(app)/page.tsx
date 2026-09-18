@@ -12,7 +12,8 @@ export default async function DashboardPage() {
       items={data.items}
       initialLancamentos={data.lancamentos}
       initialGastosDiarios={data.gastosDiarios}
-      saldoContas={data.saldoContas}
+      initialContas={data.contas}
+      contaPadraoId={data.contaPadraoId}
       totalAplicado={data.totalAplicado}
       totalDividas={data.totalDividas}
       totalBens={data.totalBens}

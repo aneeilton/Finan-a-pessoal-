@@ -1,16 +1,24 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Landmark, X } from "lucide-react";
+import { Landmark, Star, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { TopHeader } from "@/components/TopHeader";
 import { Card, EmptyState } from "@/components/ui/Card";
 import { formatMoney } from "@/lib/format";
 import type { Conta } from "@/lib/types";
 
-export function ContasScreen({ initialContas }: { initialContas: Conta[] }) {
+export function ContasScreen({
+  initialContas,
+  initialContaPadraoId,
+}: {
+  initialContas: Conta[];
+  initialContaPadraoId: string | null;
+}) {
   const supabase = createClient();
   const [contas, setContas] = useState(initialContas);
+  const [contaPadraoId, setContaPadraoId] = useState(initialContaPadraoId);
+  const [savingPadrao, setSavingPadrao] = useState(false);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [nome, setNome] = useState("");
@@ -94,6 +102,23 @@ export function ContasScreen({ initialContas }: { initialContas: Conta[] }) {
     await supabase.from("contas").delete().eq("id", id);
   }
 
+  async function definirPadrao(id: string) {
+    setSavingPadrao(true);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setSavingPadrao(false);
+      return;
+    }
+    const { error } = await supabase
+      .from("config")
+      .update({ conta_padrao_id: id })
+      .eq("user_id", user.id);
+    setSavingPadrao(false);
+    if (!error) setContaPadraoId(id);
+  }
+
   return (
     <div>
       <TopHeader
@@ -122,19 +147,35 @@ export function ContasScreen({ initialContas }: { initialContas: Conta[] }) {
           <EmptyState icon={Landmark} title="Nenhuma conta ainda" hint="Adicione seu primeiro banco ou carteira" />
         ) : (
           <div className="space-y-2">
+            <p className="px-1 text-[11px] text-ink-400">
+              Toque na estrela para escolher a conta padrão: é nela que entram e saem os valores
+              quando você marca um lançamento como pago/recebido.
+            </p>
             {contas.map((conta) => (
               <Card
                 key={conta.id}
                 className="flex cursor-pointer items-center justify-between"
                 onClick={() => startEdit(conta)}
               >
-                <div>
-                  <p className="font-semibold text-ink-800">{conta.nome}</p>
-                  <p className="text-xs text-ink-400">
-                    Aplicado: {formatMoney(Number(conta.saldo_aplicado))}
-                  </p>
+                <div className="flex min-w-0 items-center gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!savingPadrao) definirPadrao(conta.id);
+                    }}
+                    aria-label="Definir como conta padrão"
+                    className={`shrink-0 ${conta.id === contaPadraoId ? "text-sun-500" : "text-ink-100 hover:text-sun-400"}`}
+                  >
+                    <Star size={18} strokeWidth={2} fill={conta.id === contaPadraoId ? "currentColor" : "none"} />
+                  </button>
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-ink-800">{conta.nome}</p>
+                    <p className="text-xs text-ink-400">
+                      Aplicado: {formatMoney(Number(conta.saldo_aplicado))}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex shrink-0 items-center gap-3">
                   <p className="font-extrabold text-brand-700">
                     {formatMoney(Number(conta.saldo_corrente))}
                   </p>

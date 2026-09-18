@@ -51,6 +51,7 @@ export type Lancamento = {
 export type Config = {
   user_id: string;
   variaveis: number;
+  conta_padrao_id: string | null;
 };
 
 export type GastoDiario = {

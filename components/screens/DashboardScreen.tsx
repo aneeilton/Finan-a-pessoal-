@@ -21,13 +21,14 @@ import { DespesaDiariaCard } from "@/components/screens/DespesaDiariaCard";
 import { MonthSelector } from "@/components/ui/MonthSelector";
 import { buildMonthlyProjection } from "@/lib/projection";
 import { currentCompetencia, formatMoney } from "@/lib/format";
-import type { GastoDiario, Item, Lancamento } from "@/lib/types";
+import type { Conta, GastoDiario, Item, Lancamento } from "@/lib/types";
 
 export function DashboardScreen({
   items,
   initialLancamentos,
   initialGastosDiarios,
-  saldoContas,
+  initialContas,
+  contaPadraoId,
   totalAplicado,
   totalDividas,
   totalBens,
@@ -35,7 +36,8 @@ export function DashboardScreen({
   items: Item[];
   initialLancamentos: Lancamento[];
   initialGastosDiarios: GastoDiario[];
-  saldoContas: number;
+  initialContas: Conta[];
+  contaPadraoId: string | null;
   totalAplicado: number;
   totalDividas: number;
   totalBens: number;
@@ -44,9 +46,14 @@ export function DashboardScreen({
   const [competencia, setCompetencia] = useState(currentCompetencia());
   const [gastosDiarios, setGastosDiarios] = useState(initialGastosDiarios);
   const [lancamentos, setLancamentos] = useState(initialLancamentos);
+  const [contas, setContas] = useState(initialContas);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [toggleErrors, setToggleErrors] = useState<Record<string, string>>({});
 
+  const saldoContas = useMemo(
+    () => contas.reduce((s, c) => s + Number(c.saldo_corrente), 0),
+    [contas]
+  );
   const saldoAtual = saldoContas + totalAplicado;
   const patrimonioLiquido = saldoAtual + totalBens - totalDividas;
 
@@ -100,6 +107,22 @@ export function DashboardScreen({
     [items, lancamentos, competencia]
   );
 
+  async function ajustarSaldoConta(delta: number) {
+    if (!contaPadraoId || delta === 0) return;
+    const conta = contas.find((c) => c.id === contaPadraoId);
+    if (!conta) return;
+    const novoSaldo = Number(conta.saldo_corrente) + delta;
+    const { data, error } = await supabase
+      .from("contas")
+      .update({ saldo_corrente: novoSaldo })
+      .eq("id", contaPadraoId)
+      .select()
+      .single();
+    if (!error && data) {
+      setContas((prev) => prev.map((c) => (c.id === contaPadraoId ? (data as Conta) : c)));
+    }
+  }
+
   async function togglePago(itemId: string) {
     setTogglingId(itemId);
     setToggleErrors((prev) => {
@@ -118,6 +141,9 @@ export function DashboardScreen({
       return;
     }
 
+    const novoPago = !(existing?.pago ?? false);
+    const valor = existing?.valor ?? 0;
+
     const { data, error } = await supabase
       .from("lancamentos")
       .upsert(
@@ -126,8 +152,8 @@ export function DashboardScreen({
           item_id: itemId,
           user_id: user.id,
           competencia,
-          valor: existing?.valor ?? 0,
-          pago: !(existing?.pago ?? false),
+          valor,
+          pago: novoPago,
         },
         { onConflict: "item_id,competencia" }
       )
@@ -145,6 +171,12 @@ export function DashboardScreen({
         ? prev.map((l) => (l.id === (data as Lancamento).id ? (data as Lancamento) : l))
         : [...prev, data as Lancamento];
     });
+
+    const tipo = itemsById.get(itemId)?.tipo;
+    if (tipo && valor > 0) {
+      const sinal = tipo === "receita" ? 1 : -1;
+      await ajustarSaldoConta(novoPago ? sinal * valor : -sinal * valor);
+    }
   }
 
   const chartData = [
@@ -294,7 +326,13 @@ export function DashboardScreen({
         </div>
 
         <div>
-          <p className="mb-2 px-1 text-sm font-bold text-ink-800">Lançamentos do mês</p>
+          <p className="mb-1 px-1 text-sm font-bold text-ink-800">Lançamentos do mês</p>
+          {!contaPadraoId && (
+            <p className="mb-2 px-1 text-[11px] text-ink-400">
+              Defina uma conta padrão em <Link href="/contas" className="font-bold text-brand-600">Contas</Link> para
+              que marcar como pago/recebido atualize o saldo automaticamente.
+            </p>
+          )}
           {receitasDoMes.length === 0 && despesasDoMes.length === 0 ? (
             <EmptyState icon={PartyPopper} title="Nada lançado neste mês" />
           ) : (

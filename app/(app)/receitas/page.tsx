@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { MonthlyItemsScreen } from "@/components/screens/MonthlyItemsScreen";
 import { PageError } from "@/components/ui/PageError";
 import { currentCompetencia } from "@/lib/format";
+import { loadContaPadrao } from "@/lib/contaPadrao";
 
 export default async function ReceitasPage() {
   const supabase = createClient();
@@ -24,6 +25,8 @@ export default async function ReceitasPage() {
 
   if (lancError) return <PageError error={lancError} />;
 
+  const { contas, contaPadraoId } = await loadContaPadrao();
+
   return (
     <MonthlyItemsScreen
       tipo="receita"
@@ -34,6 +37,8 @@ export default async function ReceitasPage() {
       showExpectativa={true}
       initialItems={items ?? []}
       initialLancamentos={lancamentos ?? []}
+      initialContas={contas}
+      contaPadraoId={contaPadraoId}
     />
   );
 }
