@@ -109,6 +109,14 @@ export function MonthlyItemsScreen({
     [lancamentos]
   );
 
+  const itemsOrdenados = useMemo(
+    () =>
+      [...items].sort(
+        (a, b) => Number(lancamentos[a.id]?.pago ?? false) - Number(lancamentos[b.id]?.pago ?? false)
+      ),
+    [items, lancamentos]
+  );
+
   function isDirty(item: Item) {
     const draft = drafts[item.id] ?? "";
     const saved = lancamentos[item.id]?.valor ?? 0;
@@ -314,7 +322,7 @@ export function MonthlyItemsScreen({
           <EmptyState icon={icon} title="Nada por aqui ainda" hint="Adicione o primeiro item" />
         ) : (
           <div className={`space-y-2 ${loading ? "opacity-60" : ""}`}>
-            {items.map((item) => {
+            {itemsOrdenados.map((item) => {
               const lanc = lancamentos[item.id];
               const dirty = isDirty(item);
               const state = saveState[item.id] ?? "idle";
@@ -392,7 +400,7 @@ export function MonthlyItemsScreen({
                       }`}
                     >
                       {lanc?.pago && <Check size={13} strokeWidth={2.5} />}
-                      {valueDoneLabel}
+                      {lanc?.pago ? valueDoneLabel : "Pendente"}
                     </button>
                   </div>
                   {saveErrors[item.id] && (

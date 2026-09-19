@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, LineChart, CalendarRange, Landmark, Sparkles } from "lucide-react";
+import { Home, CalendarRange, Landmark, Sparkles } from "lucide-react";
 
 const TABS = [
   { href: "/", label: "Início", icon: Home },
-  { href: "/projecao", label: "Projeção", icon: LineChart },
   { href: "/semestre", label: "Semestre", icon: CalendarRange },
   { href: "/contas", label: "Contas", icon: Landmark },
   { href: "/mais", label: "Mais", icon: Sparkles },

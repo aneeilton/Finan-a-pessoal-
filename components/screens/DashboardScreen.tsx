@@ -83,7 +83,7 @@ export function DashboardScreen({
           return { id: i.id, nome: i.nome, valor: Number(lanc?.valor ?? 0), pago: lanc?.pago ?? false };
         })
         .filter((v) => v.valor > 0)
-        .sort((a, b) => a.nome.localeCompare(b.nome)),
+        .sort((a, b) => Number(a.pago) - Number(b.pago) || a.nome.localeCompare(b.nome)),
     [items, lancamentos, competencia]
   );
 
@@ -103,7 +103,7 @@ export function DashboardScreen({
           };
         })
         .filter((v) => v.valor > 0)
-        .sort((a, b) => (a.dia ?? 99) - (b.dia ?? 99)),
+        .sort((a, b) => Number(a.pago) - Number(b.pago) || (a.dia ?? 99) - (b.dia ?? 99)),
     [items, lancamentos, competencia]
   );
 
@@ -372,7 +372,7 @@ export function DashboardScreen({
                           }`}
                         >
                           {r.pago && <Check size={12} strokeWidth={2.5} />}
-                          Recebido
+                          {r.pago ? "Recebido" : "Pendente"}
                         </button>
                       </div>
                     </Card>
@@ -414,7 +414,7 @@ export function DashboardScreen({
                             }`}
                           >
                             {v.pago && <Check size={12} strokeWidth={2.5} />}
-                            Pago
+                            {v.pago ? "Pago" : "Pendente"}
                           </button>
                         </div>
                       </Card>
