@@ -107,10 +107,10 @@ export function DashboardScreen({
     [items, lancamentos, competencia]
   );
 
-  async function ajustarSaldoConta(delta: number) {
-    if (!contaPadraoId || delta === 0) return;
+  async function ajustarSaldoConta(delta: number): Promise<string | null> {
+    if (delta === 0 || !contaPadraoId) return null;
     const conta = contas.find((c) => c.id === contaPadraoId);
-    if (!conta) return;
+    if (!conta) return "Conta padrão não encontrada";
     const novoSaldo = Number(conta.saldo_corrente) + delta;
     const { data, error } = await supabase
       .from("contas")
@@ -118,9 +118,11 @@ export function DashboardScreen({
       .eq("id", contaPadraoId)
       .select()
       .single();
-    if (!error && data) {
-      setContas((prev) => prev.map((c) => (c.id === contaPadraoId ? (data as Conta) : c)));
+    if (error || !data) {
+      return error?.message ?? "Falha ao atualizar saldo da conta";
     }
+    setContas((prev) => prev.map((c) => (c.id === contaPadraoId ? (data as Conta) : c)));
+    return null;
   }
 
   async function togglePago(itemId: string) {
@@ -175,7 +177,13 @@ export function DashboardScreen({
     const tipo = itemsById.get(itemId)?.tipo;
     if (tipo && valor > 0) {
       const sinal = tipo === "receita" ? 1 : -1;
-      await ajustarSaldoConta(novoPago ? sinal * valor : -sinal * valor);
+      const saldoError = await ajustarSaldoConta(novoPago ? sinal * valor : -sinal * valor);
+      if (saldoError) {
+        setToggleErrors((prev) => ({
+          ...prev,
+          [itemId]: `Lançamento salvo, mas saldo não foi ajustado: ${saldoError}`,
+        }));
+      }
     }
   }
 

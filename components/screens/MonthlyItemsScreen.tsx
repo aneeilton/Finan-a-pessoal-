@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Check, CreditCard, Pencil, Repeat, TrendingUp, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { TopHeader } from "@/components/TopHeader";
@@ -231,10 +232,10 @@ export function MonthlyItemsScreen({
     }, 1800);
   }
 
-  async function ajustarSaldoConta(delta: number) {
-    if (!contaPadraoId || delta === 0) return;
+  async function ajustarSaldoConta(delta: number): Promise<string | null> {
+    if (delta === 0 || !contaPadraoId) return null;
     const conta = contas.find((c) => c.id === contaPadraoId);
-    if (!conta) return;
+    if (!conta) return "Conta padrão não encontrada";
     const novoSaldo = Number(conta.saldo_corrente) + delta;
     const { data, error } = await supabase
       .from("contas")
@@ -242,9 +243,11 @@ export function MonthlyItemsScreen({
       .eq("id", contaPadraoId)
       .select()
       .single();
-    if (!error && data) {
-      setContas((prev) => prev.map((c) => (c.id === contaPadraoId ? (data as Conta) : c)));
+    if (error || !data) {
+      return error?.message ?? "Falha ao atualizar saldo da conta";
     }
+    setContas((prev) => prev.map((c) => (c.id === contaPadraoId ? (data as Conta) : c)));
+    return null;
   }
 
   async function togglePago(item: Item) {
@@ -279,7 +282,13 @@ export function MonthlyItemsScreen({
 
     if (valor > 0) {
       const sinal = tipo === "receita" ? 1 : -1;
-      await ajustarSaldoConta(novoPago ? sinal * valor : -sinal * valor);
+      const saldoError = await ajustarSaldoConta(novoPago ? sinal * valor : -sinal * valor);
+      if (saldoError) {
+        setSaveErrors((prev) => ({
+          ...prev,
+          [item.id]: `Lançamento salvo, mas saldo não foi ajustado: ${saldoError}`,
+        }));
+      }
     }
   }
 
@@ -293,6 +302,13 @@ export function MonthlyItemsScreen({
 
       <div className="space-y-4 px-4 pt-1">
         <MonthSelector competencia={competencia} onChange={setCompetencia} />
+
+        {!contaPadraoId && (
+          <p className="px-1 text-[11px] text-ink-400">
+            Defina uma conta padrão em <Link href="/contas" className="font-bold text-brand-600">Contas</Link> para
+            que marcar como {valueDoneLabel.toLowerCase()} atualize o saldo automaticamente.
+          </p>
+        )}
 
         {items.length === 0 ? (
           <EmptyState icon={icon} title="Nada por aqui ainda" hint="Adicione o primeiro item" />
