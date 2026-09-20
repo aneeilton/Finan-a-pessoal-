@@ -13,7 +13,10 @@
 alter table public.items add column if not exists fixo boolean not null default true;
 alter table public.items add column if not exists competencia_unica date;
 
+-- precisa soltar a constraint antiga ANTES do update: ela so aceitava
+-- 'receita'/'cartao'/'fixa', entao gravar 'despesa' com ela ainda ativa falha.
+alter table public.items drop constraint if exists items_tipo_check;
+
 update public.items set tipo = 'despesa' where tipo in ('cartao', 'fixa');
 
-alter table public.items drop constraint if exists items_tipo_check;
 alter table public.items add constraint items_tipo_check check (tipo in ('receita', 'despesa'));
