@@ -1,22 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import {
-  ChevronRight,
-  FileWarning,
-  Gem,
-  Sparkles,
-  type LucideIcon,
-} from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { TopHeader } from "@/components/TopHeader";
 import { Card } from "@/components/ui/Card";
 import { AccountSyncCard } from "@/components/screens/AccountSyncCard";
-
-const LINKS: { href: string; label: string; icon: LucideIcon; hint: string }[] = [
-  { href: "/dividas", label: "Dívidas", icon: FileWarning, hint: "Curto e longo prazo" },
-  { href: "/bens", label: "Patrimônio", icon: Gem, hint: "Bens e propriedades" },
-];
 
 export function MaisScreen({
   isAnonymous,
@@ -46,25 +34,6 @@ export function MaisScreen({
 
       <div className="space-y-4 px-4 pt-1">
         <AccountSyncCard isAnonymous={isAnonymous} email={email} />
-
-        <div className="grid grid-cols-1 gap-2">
-          {LINKS.map((link) => (
-            <Link key={link.href} href={link.href}>
-              <Card className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
-                    <link.icon size={18} strokeWidth={2} />
-                  </span>
-                  <div>
-                    <p className="font-semibold text-ink-800">{link.label}</p>
-                    <p className="text-xs text-ink-400">{link.hint}</p>
-                  </div>
-                </div>
-                <ChevronRight size={18} className="text-ink-300" />
-              </Card>
-            </Link>
-          ))}
-        </div>
 
         <Card>
           <p className="text-xs font-semibold uppercase tracking-wide text-ink-400">

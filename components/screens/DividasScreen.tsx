@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FileWarning, PartyPopper, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { TopHeader } from "@/components/TopHeader";
@@ -8,7 +8,15 @@ import { Card, EmptyState } from "@/components/ui/Card";
 import { formatMoney } from "@/lib/format";
 import type { Divida, DividaTipo } from "@/lib/types";
 
-export function DividasScreen({ initialDividas }: { initialDividas: Divida[] }) {
+export function DividasScreen({
+  initialDividas,
+  hideHeader,
+  onTotalChange,
+}: {
+  initialDividas: Divida[];
+  hideHeader?: boolean;
+  onTotalChange?: (total: number) => void;
+}) {
   const supabase = createClient();
   const [dividas, setDividas] = useState(initialDividas);
   const [open, setOpen] = useState(false);
@@ -27,6 +35,11 @@ export function DividasScreen({ initialDividas }: { initialDividas: Divida[] }) 
     () => dividas.filter((d) => d.tipo === "longo").reduce((s, d) => s + Number(d.valor), 0),
     [dividas]
   );
+
+  useEffect(() => {
+    onTotalChange?.(totalCurto + totalLongo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalCurto, totalLongo]);
 
   function closeForm() {
     setOpen(false);
@@ -87,11 +100,17 @@ export function DividasScreen({ initialDividas }: { initialDividas: Divida[] }) 
 
   return (
     <div>
-      <TopHeader
-        icon={FileWarning}
-        title="Dívidas"
-        subtitle={`Total ${formatMoney(totalCurto + totalLongo)}`}
-      />
+      {hideHeader ? (
+        <p className="px-4 pb-2 text-sm text-ink-500">
+          Total · <span className="font-bold text-ink-800">{formatMoney(totalCurto + totalLongo)}</span>
+        </p>
+      ) : (
+        <TopHeader
+          icon={FileWarning}
+          title="Dívidas"
+          subtitle={`Total ${formatMoney(totalCurto + totalLongo)}`}
+        />
+      )}
 
       <div className="space-y-4 px-4 pt-4">
         <div className="grid grid-cols-2 gap-3">

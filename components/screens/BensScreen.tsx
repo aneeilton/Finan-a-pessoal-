@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Gem, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { TopHeader } from "@/components/TopHeader";
@@ -8,7 +8,15 @@ import { Card, EmptyState } from "@/components/ui/Card";
 import { formatMoney } from "@/lib/format";
 import type { Bem } from "@/lib/types";
 
-export function BensScreen({ initialBens }: { initialBens: Bem[] }) {
+export function BensScreen({
+  initialBens,
+  hideHeader,
+  onTotalChange,
+}: {
+  initialBens: Bem[];
+  hideHeader?: boolean;
+  onTotalChange?: (total: number) => void;
+}) {
   const supabase = createClient();
   const [bens, setBens] = useState(initialBens);
   const [open, setOpen] = useState(false);
@@ -19,6 +27,11 @@ export function BensScreen({ initialBens }: { initialBens: Bem[] }) {
   const [error, setError] = useState<string | null>(null);
 
   const total = useMemo(() => bens.reduce((s, b) => s + Number(b.valor), 0), [bens]);
+
+  useEffect(() => {
+    onTotalChange?.(total);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [total]);
 
   function closeForm() {
     setOpen(false);
@@ -77,7 +90,13 @@ export function BensScreen({ initialBens }: { initialBens: Bem[] }) {
 
   return (
     <div>
-      <TopHeader icon={Gem} title="Patrimônio" subtitle={`Total ${formatMoney(total)}`} />
+      {hideHeader ? (
+        <p className="px-4 pb-2 text-sm text-ink-500">
+          Total · <span className="font-bold text-ink-800">{formatMoney(total)}</span>
+        </p>
+      ) : (
+        <TopHeader icon={Gem} title="Bens" subtitle={`Total ${formatMoney(total)}`} />
+      )}
 
       <div className="space-y-4 px-4 pt-4">
         {bens.length === 0 ? (

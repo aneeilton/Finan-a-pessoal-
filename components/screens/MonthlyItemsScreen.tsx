@@ -46,6 +46,7 @@ export function MonthlyItemsScreen({
   initialLancamentos,
   initialContas,
   contaPadraoId,
+  hideHeader,
 }: {
   tipo: ItemTipo;
   title: string;
@@ -57,6 +58,7 @@ export function MonthlyItemsScreen({
   initialLancamentos: Lancamento[];
   initialContas: Conta[];
   contaPadraoId: string | null;
+  hideHeader?: boolean;
 }) {
   const supabase = createClient();
   const tones = TONE_CLASSES[tone];
@@ -421,18 +423,24 @@ export function MonthlyItemsScreen({
 
   return (
     <div>
-      <TopHeader
-        icon={icon}
-        title={title}
-        subtitle={`Total em ${monthLabel(competencia)} · ${formatMoney(total)}`}
-      />
+      {hideHeader ? (
+        <p className="px-4 pb-2 text-sm text-ink-500">
+          Total em {monthLabel(competencia)} · <span className="font-bold text-ink-800">{formatMoney(total)}</span>
+        </p>
+      ) : (
+        <TopHeader
+          icon={icon}
+          title={title}
+          subtitle={`Total em ${monthLabel(competencia)} · ${formatMoney(total)}`}
+        />
+      )}
 
       <div className="space-y-4 px-4 pt-1">
         <MonthSelector competencia={competencia} onChange={setCompetencia} />
 
         {!contaPadraoId && (
           <p className="px-1 text-[11px] text-ink-400">
-            Defina uma conta padrão em <Link href="/contas" className="font-bold text-brand-600">Contas</Link> para
+            Defina uma conta padrão em <Link href="/patrimonio" className="font-bold text-brand-600">Patrimônio</Link> para
             que marcar como {valueDoneLabel.toLowerCase()} atualize o saldo automaticamente.
           </p>
         )}

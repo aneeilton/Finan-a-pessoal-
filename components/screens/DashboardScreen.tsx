@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import {
+  Activity,
   Check,
   CreditCard,
   FileWarning,
@@ -12,6 +13,7 @@ import {
   PiggyBank,
   Repeat,
   TrendingUp,
+  Wallet,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { TopHeader } from "@/components/TopHeader";
@@ -213,6 +215,65 @@ export function DashboardScreen({
         ? { bg: "bg-sun-500/10", text: "text-sun-500" }
         : { bg: "bg-brand-100", text: "text-brand-700" };
 
+  // "Sobra hoje" e "saúde financeira" olham sempre para o mês real de hoje,
+  // não para o mês selecionado no seletor (que pode ser passado/futuro).
+  const mesAtual = useMemo(() => series.find((s) => s.isCurrent) ?? series[0], [series]);
+
+  const diasRestantesNoMes = useMemo(() => {
+    const hoje = new Date();
+    const ultimoDia = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+    return Math.max(1, ultimoDia - hoje.getDate() + 1);
+  }, []);
+
+  const sobraHoje = Math.max(0, mesAtual.saldoFinal) / diasRestantesNoMes;
+
+  const saudeFinanceira = useMemo(() => {
+    const scoreComprometimento = Math.max(0, Math.min(100, 100 - resumoSemestre.comprometimento));
+
+    const taxaPoupanca =
+      mesAtual.receitaTotal > 0
+        ? ((mesAtual.receitaTotal - mesAtual.despesaTotal) / mesAtual.receitaTotal) * 100
+        : 0;
+    const scorePoupanca = Math.max(0, Math.min(100, 50 + taxaPoupanca * 2.5));
+
+    const patrimonioBruto = saldoAtual + totalBens;
+    const razaoDivida = patrimonioBruto > 0 ? totalDividas / patrimonioBruto : totalDividas > 0 ? 1 : 0;
+    const scoreDivida = Math.max(0, Math.min(100, 100 - razaoDivida * 100));
+
+    const componentes = [
+      {
+        label: "Comprometimento de renda",
+        score: scoreComprometimento,
+        dica: "Suas despesas programadas tomam boa parte da renda esperada — reveja despesas fixas.",
+      },
+      {
+        label: "Poupança do mês",
+        score: scorePoupanca,
+        dica: "O mês está fechando no zero a zero ou no vermelho — tente sobrar algo até o fim do mês.",
+      },
+      {
+        label: "Endividamento",
+        score: scoreDivida,
+        dica: "Suas dívidas pesam bastante frente ao que você tem — priorize quitá-las.",
+      },
+    ];
+    const nota = Math.round(
+      componentes.reduce((s, c) => s + c.score, 0) / componentes.length
+    );
+    const pior = componentes.reduce((a, b) => (b.score < a.score ? b : a));
+
+    return { nota, componentes, pior };
+  }, [resumoSemestre.comprometimento, mesAtual, saldoAtual, totalBens, totalDividas]);
+
+  const notaTone =
+    saudeFinanceira.nota >= 80
+      ? { bg: "bg-brand-100", text: "text-brand-700", label: "Excelente" }
+      : saudeFinanceira.nota >= 60
+        ? { bg: "bg-sky-500/10", text: "text-sky-500", label: "Boa" }
+        : saudeFinanceira.nota >= 40
+          ? { bg: "bg-sun-500/10", text: "text-sun-500", label: "Atenção" }
+          : { bg: "bg-coral-500/10", text: "text-coral-500", label: "Crítica" };
+
   return (
     <div>
       <TopHeader title="Olá!" subtitle="Aqui está o resumo das suas finanças" />
@@ -246,12 +307,78 @@ export function DashboardScreen({
           </p>
         </Card>
 
+        <Card className="flex items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-700">
+            <Wallet size={20} strokeWidth={2} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+              Sobra hoje
+            </p>
+            {mesAtual.saldoFinal >= 0 ? (
+              <p className="text-sm text-ink-600">
+                Dá pra gastar até{" "}
+                <span className="font-extrabold text-brand-700 [font-variant-numeric:tabular-nums]">
+                  {formatMoney(sobraHoje)}
+                </span>{" "}
+                por dia até o fim do mês sem mexer no que já está programado
+              </p>
+            ) : (
+              <p className="text-sm text-coral-500">
+                Previsão de fechar o mês em{" "}
+                <span className="font-extrabold [font-variant-numeric:tabular-nums]">
+                  {formatMoney(mesAtual.saldoFinal)}
+                </span>{" "}
+                — vale rever despesas antes de gastar mais
+              </p>
+            )}
+          </div>
+        </Card>
+
         <div className="grid grid-cols-2 gap-3">
           <StatCard icon={PiggyBank} label="Investido" value={formatMoney(totalAplicado)} tone="grape" />
           <StatCard icon={FileWarning} label="Dívidas" value={formatMoney(totalDividas)} tone="coral" />
           <StatCard icon={Gem} label="Bens" value={formatMoney(totalBens)} tone="sun" />
           <StatCard icon={TrendingUp} label="Patrimônio líquido" value={formatMoney(patrimonioLiquido)} tone="sky" />
         </div>
+
+        <Card>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className={`flex h-9 w-9 items-center justify-center rounded-2xl ${notaTone.bg} ${notaTone.text}`}>
+                <Activity size={17} strokeWidth={2.25} />
+              </span>
+              <div>
+                <p className="text-sm font-bold text-ink-800">Saúde financeira</p>
+                <p className={`text-xs font-bold ${notaTone.text}`}>{notaTone.label}</p>
+              </div>
+            </div>
+            <p className={`text-2xl font-extrabold [font-variant-numeric:tabular-nums] ${notaTone.text}`}>
+              {saudeFinanceira.nota}
+            </p>
+          </div>
+          <div className="mt-3 space-y-2">
+            {saudeFinanceira.componentes.map((c) => (
+              <div key={c.label}>
+                <div className="flex items-center justify-between text-[11px] text-ink-500">
+                  <span>{c.label}</span>
+                  <span className="font-bold text-ink-700">{Math.round(c.score)}</span>
+                </div>
+                <div className="mt-0.5 h-1.5 w-full overflow-hidden rounded-full bg-ink-100">
+                  <div
+                    className={`h-full rounded-full ${
+                      c.score >= 60 ? "bg-brand-500" : c.score >= 40 ? "bg-sun-400" : "bg-coral-400"
+                    }`}
+                    style={{ width: `${Math.max(4, c.score)}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+          {saudeFinanceira.pior.score < 60 && (
+            <p className="mt-3 text-[11px] text-ink-500">{saudeFinanceira.pior.dica}</p>
+          )}
+        </Card>
 
         <DespesaDiariaCard
           competencia={competencia}
@@ -337,7 +464,7 @@ export function DashboardScreen({
           <p className="mb-1 px-1 text-sm font-bold text-ink-800">Lançamentos do mês</p>
           {!contaPadraoId && (
             <p className="mb-2 px-1 text-[11px] text-ink-400">
-              Defina uma conta padrão em <Link href="/contas" className="font-bold text-brand-600">Contas</Link> para
+              Defina uma conta padrão em <Link href="/patrimonio" className="font-bold text-brand-600">Patrimônio</Link> para
               que marcar como pago/recebido atualize o saldo automaticamente.
             </p>
           )}

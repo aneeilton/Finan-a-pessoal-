@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Landmark, Star, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { TopHeader } from "@/components/TopHeader";
@@ -11,9 +11,13 @@ import type { Conta } from "@/lib/types";
 export function ContasScreen({
   initialContas,
   initialContaPadraoId,
+  hideHeader,
+  onTotaisChange,
 }: {
   initialContas: Conta[];
   initialContaPadraoId: string | null;
+  hideHeader?: boolean;
+  onTotaisChange?: (totalCorrente: number, totalAplicado: number) => void;
 }) {
   const supabase = createClient();
   const [contas, setContas] = useState(initialContas);
@@ -35,6 +39,11 @@ export function ContasScreen({
     () => contas.reduce((sum, c) => sum + Number(c.saldo_aplicado), 0),
     [contas]
   );
+
+  useEffect(() => {
+    onTotaisChange?.(totalCorrente, totalAplicado);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalCorrente, totalAplicado]);
 
   function closeForm() {
     setOpen(false);
@@ -121,11 +130,18 @@ export function ContasScreen({
 
   return (
     <div>
-      <TopHeader
-        icon={Landmark}
-        title="Contas"
-        subtitle={`Saldo total ${formatMoney(totalCorrente + totalAplicado)}`}
-      />
+      {hideHeader ? (
+        <p className="px-4 pb-2 text-sm text-ink-500">
+          Saldo total ·{" "}
+          <span className="font-bold text-ink-800">{formatMoney(totalCorrente + totalAplicado)}</span>
+        </p>
+      ) : (
+        <TopHeader
+          icon={Landmark}
+          title="Contas"
+          subtitle={`Saldo total ${formatMoney(totalCorrente + totalAplicado)}`}
+        />
+      )}
 
       <div className="space-y-4 px-4 pt-4">
         <div className="grid grid-cols-2 gap-3">
