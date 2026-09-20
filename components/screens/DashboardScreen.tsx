@@ -21,7 +21,7 @@ import { Card, EmptyState } from "@/components/ui/Card";
 import { StatCard } from "@/components/ui/StatCard";
 import { DespesaDiariaCard } from "@/components/screens/DespesaDiariaCard";
 import { MonthSelector } from "@/components/ui/MonthSelector";
-import { buildMonthlyProjection } from "@/lib/projection";
+import { buildMonthlyProjection, valoresEfetivosPorItem } from "@/lib/projection";
 import { currentCompetencia, formatMoney } from "@/lib/format";
 import type { Conta, GastoDiario, Item, Lancamento } from "@/lib/types";
 
@@ -76,17 +76,33 @@ export function DashboardScreen({
 
   const itemsById = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
 
+  // Valor "vigente" de cada item no mes selecionado: o lancamento real, ou
+  // -- pra item fixo sem lancamento nesse mes -- o valor do ultimo mes
+  // lancado, repetido pra frente (mesma logica usada na projecao e no
+  // Fluxo, pra essa lista nao mostrar zerado um item fixo sem lancamento
+  // proprio ainda neste mes).
+  const efetivosDoMes = useMemo(
+    () => valoresEfetivosPorItem(items, lancamentos, competencia),
+    [items, lancamentos, competencia]
+  );
+
   const receitasDoMes = useMemo(
     () =>
       items
         .filter((i) => i.tipo === "receita")
         .map((i) => {
-          const lanc = lancamentos.find((l) => l.item_id === i.id && l.competencia === competencia);
-          return { id: i.id, nome: i.nome, valor: Number(lanc?.valor ?? 0), pago: lanc?.pago ?? false };
+          const efetivo = efetivosDoMes.get(i.id);
+          return {
+            id: i.id,
+            nome: i.nome,
+            valor: efetivo?.valor ?? 0,
+            pago: efetivo?.pago ?? false,
+            inferido: efetivo?.inferido ?? false,
+          };
         })
         .filter((v) => v.valor > 0)
         .sort((a, b) => Number(a.pago) - Number(b.pago) || a.nome.localeCompare(b.nome)),
-    [items, lancamentos, competencia]
+    [items, efetivosDoMes]
   );
 
   const despesasDoMes = useMemo(
@@ -94,19 +110,20 @@ export function DashboardScreen({
       items
         .filter((i) => i.tipo === "despesa")
         .map((i) => {
-          const lanc = lancamentos.find((l) => l.item_id === i.id && l.competencia === competencia);
+          const efetivo = efetivosDoMes.get(i.id);
           return {
             id: i.id,
             nome: i.nome,
             fixo: i.fixo,
             dia: i.dia_vencimento,
-            valor: Number(lanc?.valor ?? 0),
-            pago: lanc?.pago ?? false,
+            valor: efetivo?.valor ?? 0,
+            pago: efetivo?.pago ?? false,
+            inferido: efetivo?.inferido ?? false,
           };
         })
         .filter((v) => v.valor > 0)
         .sort((a, b) => Number(a.pago) - Number(b.pago) || (a.dia ?? 99) - (b.dia ?? 99)),
-    [items, lancamentos, competencia]
+    [items, efetivosDoMes]
   );
 
   async function ajustarSaldoConta(delta: number): Promise<string | null> {
@@ -146,7 +163,7 @@ export function DashboardScreen({
     }
 
     const novoPago = !(existing?.pago ?? false);
-    const valor = existing?.valor ?? 0;
+    const valor = existing?.valor ?? efetivosDoMes.get(itemId)?.valor ?? 0;
 
     const { data, error } = await supabase
       .from("lancamentos")
@@ -483,9 +500,12 @@ export function DashboardScreen({
                         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-700">
                           <TrendingUp size={16} strokeWidth={2} />
                         </span>
-                        <p className={`truncate text-sm font-semibold ${r.pago ? "text-ink-400" : "text-ink-800"}`}>
-                          {r.nome}
-                        </p>
+                        <div className="min-w-0">
+                          <p className={`truncate text-sm font-semibold ${r.pago ? "text-ink-400" : "text-ink-800"}`}>
+                            {r.nome}
+                          </p>
+                          {r.inferido && <p className="text-[10px] text-ink-400">Previsto (repete o último mês)</p>}
+                        </div>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <p className="font-extrabold text-ink-800 [font-variant-numeric:tabular-nums]">
@@ -527,6 +547,9 @@ export function DashboardScreen({
                               {v.nome}
                             </p>
                             {v.dia && <p className="text-xs text-ink-400">Vence dia {v.dia}</p>}
+                            {v.inferido && (
+                              <p className="text-[10px] text-ink-400">Previsto (repete o último mês)</p>
+                            )}
                           </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">

@@ -8,6 +8,7 @@ import { TopHeader } from "@/components/TopHeader";
 import { Card, EmptyState } from "@/components/ui/Card";
 import { MonthSelector } from "@/components/ui/MonthSelector";
 import { currentCompetencia, formatMoney, monthLabel } from "@/lib/format";
+import { valoresEfetivosPorItem } from "@/lib/projection";
 import type { Conta, Item, ItemTipo, Lancamento } from "@/lib/types";
 
 type Tone = "brand" | "sky" | "sun" | "coral" | "grape";
@@ -47,6 +48,7 @@ export function MonthlyItemsScreen({
   initialContas,
   contaPadraoId,
   hideHeader,
+  onContasChange,
 }: {
   tipo: ItemTipo;
   title: string;
@@ -59,6 +61,7 @@ export function MonthlyItemsScreen({
   initialContas: Conta[];
   contaPadraoId: string | null;
   hideHeader?: boolean;
+  onContasChange?: (contas: Conta[]) => void;
 }) {
   const supabase = createClient();
   const tones = TONE_CLASSES[tone];
@@ -66,15 +69,15 @@ export function MonthlyItemsScreen({
   const [items, setItems] = useState(initialItems);
   const [contas, setContas] = useState(initialContas);
   const [competencia, setCompetencia] = useState(currentCompetencia());
-  const [lancamentos, setLancamentos] = useState<Record<string, Lancamento>>(
-    Object.fromEntries(initialLancamentos.map((l) => [l.item_id, l]))
-  );
-  const [drafts, setDrafts] = useState<Record<string, string>>(
-    Object.fromEntries(initialLancamentos.map((l) => [l.item_id, String(l.valor)]))
-  );
+  // Historico completo (todas as competencias), nao so a selecionada -- e o
+  // que permite um item fixo "puxar" seu valor pra frente em meses sem
+  // lancamento proprio (ver lib/projection.valoresEfetivosPorItem). Uma
+  // unica busca no mount; navegar entre meses e so recalculo local, sem
+  // round-trip ao Supabase.
+  const [todosLancamentos, setTodosLancamentos] = useState<Lancamento[]>(initialLancamentos);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [saveState, setSaveState] = useState<Record<string, SaveState>>({});
   const [saveErrors, setSaveErrors] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [nome, setNome] = useState("");
@@ -85,36 +88,45 @@ export function MonthlyItemsScreen({
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setLoading(true);
-      const { data } = await supabase
-        .from("lancamentos")
-        .select("*")
-        .eq("competencia", competencia)
-        .in("item_id", items.map((i) => i.id).length ? items.map((i) => i.id) : ["00000000-0000-0000-0000-000000000000"]);
-      if (!cancelled) {
-        const byItem: Record<string, Lancamento> = Object.fromEntries(
-          (data ?? []).map((l) => [l.item_id, l as Lancamento])
-        );
-        setLancamentos(byItem);
-        setDrafts(Object.fromEntries(Object.entries(byItem).map(([id, l]) => [id, String(l.valor)])));
-        setSaveState({});
-        setSaveErrors({});
-        setLoading(false);
-      }
+    onContasChange?.(contas);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contas]);
+
+  // Lancamento real (linha propria) do mes selecionado -- controla o botao
+  // de pago/pendente e o que "isDirty" compara contra.
+  const lancamentos = useMemo(() => {
+    const map: Record<string, Lancamento> = {};
+    for (const l of todosLancamentos) {
+      if (l.competencia === competencia) map[l.item_id] = l;
     }
-    load();
-    return () => {
-      cancelled = true;
-    };
+    return map;
+  }, [todosLancamentos, competencia]);
+
+  // Valor "vigente" de cada item no mes selecionado: o lancamento real, ou
+  // -- pra item fixo sem lancamento nesse mes -- o valor do ultimo mes
+  // lancado, repetido pra frente.
+  const efetivos = useMemo(
+    () => valoresEfetivosPorItem(items, todosLancamentos, competencia),
+    [items, todosLancamentos, competencia]
+  );
+
+  useEffect(() => {
+    const novosDrafts: Record<string, string> = {};
+    for (const item of items) {
+      const efetivo = efetivos.get(item.id);
+      novosDrafts[item.id] = efetivo ? String(efetivo.valor) : "";
+    }
+    setDrafts(novosDrafts);
+    setSaveState({});
+    setSaveErrors({});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [competencia]);
 
-  const total = useMemo(
-    () => Object.values(lancamentos).reduce((s, l) => s + Number(l.valor), 0),
-    [lancamentos]
-  );
+  const total = useMemo(() => {
+    let soma = 0;
+    for (const efetivo of efetivos.values()) soma += efetivo.valor;
+    return soma;
+  }, [efetivos]);
 
   const itemsVisiveis = useMemo(
     () => items.filter((i) => i.fixo || i.competencia_unica === competencia),
@@ -212,7 +224,15 @@ export function MonthlyItemsScreen({
 
   async function removeItem(id: string) {
     setItems((prev) => prev.filter((i) => i.id !== id));
+    setTodosLancamentos((prev) => prev.filter((l) => l.item_id !== id));
     await supabase.from("items").delete().eq("id", id);
+  }
+
+  function upsertLocal(lancamento: Lancamento) {
+    setTodosLancamentos((prev) => {
+      const found = prev.some((l) => l.id === lancamento.id);
+      return found ? prev.map((l) => (l.id === lancamento.id ? lancamento : l)) : [...prev, lancamento];
+    });
   }
 
   async function saveValor(item: Item) {
@@ -257,7 +277,7 @@ export function MonthlyItemsScreen({
       return;
     }
 
-    setLancamentos((prev) => ({ ...prev, [item.id]: data as Lancamento }));
+    upsertLocal(data as Lancamento);
     setDrafts((prev) => ({ ...prev, [item.id]: String((data as Lancamento).valor) }));
     setSaveState((prev) => ({ ...prev, [item.id]: "saved" }));
     setTimeout(() => {
@@ -310,7 +330,7 @@ export function MonthlyItemsScreen({
       setSaveErrors((prev) => ({ ...prev, [item.id]: error?.message ?? "Falha ao salvar" }));
       return;
     }
-    setLancamentos((prev) => ({ ...prev, [item.id]: data as Lancamento }));
+    upsertLocal(data as Lancamento);
     setDrafts((prev) => ({ ...prev, [item.id]: String((data as Lancamento).valor) }));
 
     if (valor > 0) {
@@ -330,6 +350,7 @@ export function MonthlyItemsScreen({
     const dirty = isDirty(item);
     const state = saveState[item.id] ?? "idle";
     const ItemIcon = itemIcon(tipo, item.fixo);
+    const inferido = !lanc && efetivos.get(item.id)?.inferido;
     return (
       <Card key={item.id}>
         <div className="flex items-start justify-between gap-2">
@@ -412,6 +433,11 @@ export function MonthlyItemsScreen({
             {lanc?.pago ? valueDoneLabel : "Pendente"}
           </button>
         </div>
+        {inferido && (
+          <p className="mt-1.5 text-[11px] text-ink-400">
+            Repetindo o valor do último mês lançado · toque em Salvar pra confirmar em {monthLabel(competencia)}
+          </p>
+        )}
         {saveErrors[item.id] && (
           <p className="mt-1.5 text-xs font-medium text-coral-500">
             Erro ao salvar: {saveErrors[item.id]}
@@ -450,7 +476,7 @@ export function MonthlyItemsScreen({
         ) : itemsVisiveis.length === 0 ? (
           <EmptyState icon={icon} title="Nada neste mês" hint="Itens pontuais só aparecem no mês em que ocorreram" />
         ) : (
-          <div className={`space-y-4 ${loading ? "opacity-60" : ""}`}>
+          <div className="space-y-4">
             {itemsFixos.length > 0 && (
               <div className="space-y-2">
                 <p className="px-1 text-[11px] font-bold uppercase tracking-wide text-ink-400">Fixas</p>

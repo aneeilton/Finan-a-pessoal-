@@ -76,26 +76,24 @@ export function PatrimonioScreen({
         </div>
       </div>
 
-      {aba === "contas" && (
+      {/* Mantidas sempre montadas (so escondidas via CSS): desmontar a
+          inativa fazia qualquer conta/divida/bem adicionado, ou a conta
+          padrao trocada, sumir ao voltar pra essa aba -- a tela remontava
+          do zero com os dados originais da carga da pagina. */}
+      <div className={aba === "contas" ? "" : "hidden"}>
         <ContasScreen
-          key="contas"
           initialContas={initialContas}
           initialContaPadraoId={initialContaPadraoId}
           hideHeader
           onTotaisChange={(corrente, aplicado) => setContasTotal({ corrente, aplicado })}
         />
-      )}
-      {aba === "dividas" && (
-        <DividasScreen
-          key="dividas"
-          initialDividas={initialDividas}
-          hideHeader
-          onTotalChange={setDividasTotal}
-        />
-      )}
-      {aba === "bens" && (
-        <BensScreen key="bens" initialBens={initialBens} hideHeader onTotalChange={setBensTotal} />
-      )}
+      </div>
+      <div className={aba === "dividas" ? "" : "hidden"}>
+        <DividasScreen initialDividas={initialDividas} hideHeader onTotalChange={setDividasTotal} />
+      </div>
+      <div className={aba === "bens" ? "" : "hidden"}>
+        <BensScreen initialBens={initialBens} hideHeader onTotalChange={setBensTotal} />
+      </div>
     </div>
   );
 }

@@ -11,7 +11,7 @@ type TipoDados = { items: Item[]; lancamentos: Lancamento[] };
 export function FluxoScreen({
   receita,
   despesa,
-  contas,
+  contas: initialContas,
   contaPadraoId,
 }: {
   receita: TipoDados;
@@ -20,6 +20,11 @@ export function FluxoScreen({
   contaPadraoId: string | null;
 }) {
   const [aba, setAba] = useState<"receita" | "despesa">("receita");
+  // Levantado aqui (em vez de cada MonthlyItemsScreen ter sua propria copia)
+  // porque as duas telas ajustam o saldo da MESMA conta padrao ao marcar
+  // pago/recebido -- com copias independentes, alternar de aba fazia uma
+  // sobrescrever o ajuste de saldo que a outra acabou de salvar.
+  const [contas, setContas] = useState(initialContas);
 
   return (
     <div>
@@ -48,9 +53,12 @@ export function FluxoScreen({
         </button>
       </div>
 
-      {aba === "receita" ? (
+      {/* As duas telas ficam sempre montadas (so escondidas via CSS) em vez
+          de desmontar a inativa: desmontar perdia edicoes em andamento
+          (rascunho de valor, formulario de novo item aberto) sempre que o
+          usuario so estava dando uma olhada na outra aba. */}
+      <div className={aba === "receita" ? "" : "hidden"}>
         <MonthlyItemsScreen
-          key="receita"
           tipo="receita"
           title="Receitas"
           tone="brand"
@@ -61,11 +69,12 @@ export function FluxoScreen({
           initialLancamentos={receita.lancamentos}
           initialContas={contas}
           contaPadraoId={contaPadraoId}
+          onContasChange={setContas}
           hideHeader
         />
-      ) : (
+      </div>
+      <div className={aba === "despesa" ? "" : "hidden"}>
         <MonthlyItemsScreen
-          key="despesa"
           tipo="despesa"
           title="Despesas"
           tone="coral"
@@ -76,9 +85,10 @@ export function FluxoScreen({
           initialLancamentos={despesa.lancamentos}
           initialContas={contas}
           contaPadraoId={contaPadraoId}
+          onContasChange={setContas}
           hideHeader
         />
-      )}
+      </div>
     </div>
   );
 }

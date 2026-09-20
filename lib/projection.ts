@@ -15,13 +15,69 @@ export type MonthProjection = {
   isCurrent: boolean;
 };
 
-type MesBucket = {
-  receitaTotal: number;
-  despesaFixa: number;
-  despesaPontual: number;
-  receitaPendente: number;
-  despesaPendente: number;
-};
+export type ValorEfetivo = { valor: number; pago: boolean; inferido: boolean };
+
+/**
+ * Agrupa os lancamentos de cada item em ordem cronologica -- base para
+ * "puxar" o valor de um item fixo pra frente (ver lancamentoEfetivo).
+ */
+function agruparPorItem(itemIds: Set<string>, lancamentos: Lancamento[]): Map<string, Lancamento[]> {
+  const porItem = new Map<string, Lancamento[]>();
+  for (const l of lancamentos) {
+    if (!itemIds.has(l.item_id)) continue;
+    const lista = porItem.get(l.item_id);
+    if (lista) lista.push(l);
+    else porItem.set(l.item_id, [l]);
+  }
+  for (const lista of porItem.values()) {
+    lista.sort((a, b) => a.competencia.localeCompare(b.competencia));
+  }
+  return porItem;
+}
+
+/**
+ * Valor "vigente" de um item numa competencia: o lancamento explicito
+ * dessa competencia ou, pra item fixo sem lancamento no mes, o ultimo
+ * lancamento explicito anterior a ela (o valor continua o mesmo ate
+ * alguem lancar um valor diferente nesse mes). Sem isso, tanto a
+ * projecao quanto a tela de edicao mostravam um item fixo como zerado
+ * em qualquer mes sem lancamento proprio, mesmo sendo recorrente.
+ */
+function lancamentoEfetivo(
+  item: Item,
+  competencia: string,
+  listaDoItem: Lancamento[] | undefined
+): ValorEfetivo | null {
+  if (!listaDoItem?.length) return null;
+  const exato = listaDoItem.find((l) => l.competencia === competencia);
+  if (exato) return { valor: Number(exato.valor), pago: exato.pago, inferido: false };
+  if (!item.fixo) return null;
+  let anterior: Lancamento | null = null;
+  for (const l of listaDoItem) {
+    if (l.competencia < competencia) anterior = l;
+    else break;
+  }
+  return anterior ? { valor: Number(anterior.valor), pago: false, inferido: true } : null;
+}
+
+/**
+ * Valor efetivo de cada item numa competencia -- usado pelas telas de
+ * edicao (Fluxo) pra pre-preencher itens fixos com o valor do ultimo
+ * mes lancado, em vez de mostrar zerado ate alguem digitar de novo.
+ */
+export function valoresEfetivosPorItem(
+  items: Item[],
+  lancamentos: Lancamento[],
+  competencia: string
+): Map<string, ValorEfetivo> {
+  const porItem = agruparPorItem(new Set(items.map((i) => i.id)), lancamentos);
+  const resultado = new Map<string, ValorEfetivo>();
+  for (const item of items) {
+    const efetivo = lancamentoEfetivo(item, competencia, porItem.get(item.id));
+    if (efetivo) resultado.set(item.id, efetivo);
+  }
+  return resultado;
+}
 
 /**
  * Projeta o saldo mes a mes a partir do saldo real das contas hoje
@@ -47,37 +103,8 @@ export function buildMonthlyProjection({
   monthsBefore: number;
   monthsAfter: number;
 }): MonthProjection[] {
-  const itemsById = new Map(items.map((i) => [i.id, i]));
   const current = currentCompetencia();
-
-  const porMes = new Map<string, MesBucket>();
-  function ensure(mes: string): MesBucket {
-    if (!porMes.has(mes)) {
-      porMes.set(mes, {
-        receitaTotal: 0,
-        despesaFixa: 0,
-        despesaPontual: 0,
-        receitaPendente: 0,
-        despesaPendente: 0,
-      });
-    }
-    return porMes.get(mes)!;
-  }
-
-  for (const l of lancamentos) {
-    const item = itemsById.get(l.item_id);
-    if (!item) continue;
-    const bucket = ensure(l.competencia);
-    const valor = Number(l.valor);
-    if (item.tipo === "receita") {
-      bucket.receitaTotal += valor;
-      if (!l.pago) bucket.receitaPendente += valor;
-    } else {
-      if (item.fixo) bucket.despesaFixa += valor;
-      else bucket.despesaPontual += valor;
-      if (!l.pago) bucket.despesaPendente += valor;
-    }
-  }
+  const porItem = agruparPorItem(new Set(items.map((i) => i.id)), lancamentos);
 
   const gastosPorMes = new Map<string, number>();
   for (const g of gastosDiarios) {
@@ -86,21 +113,33 @@ export function buildMonthlyProjection({
   }
 
   function dadosDoMes(competencia: string) {
-    const base = porMes.get(competencia) ?? {
-      receitaTotal: 0,
-      despesaFixa: 0,
-      despesaPontual: 0,
-      receitaPendente: 0,
-      despesaPendente: 0,
-    };
+    let receitaTotal = 0;
+    let despesaFixa = 0;
+    let despesaPontual = 0;
+    let receitaPendente = 0;
+    let despesaPendente = 0;
+
+    for (const item of items) {
+      const efetivo = lancamentoEfetivo(item, competencia, porItem.get(item.id));
+      if (!efetivo) continue;
+      if (item.tipo === "receita") {
+        receitaTotal += efetivo.valor;
+        if (!efetivo.pago) receitaPendente += efetivo.valor;
+      } else {
+        if (item.fixo) despesaFixa += efetivo.valor;
+        else despesaPontual += efetivo.valor;
+        if (!efetivo.pago) despesaPendente += efetivo.valor;
+      }
+    }
+
     const gastos = gastosPorMes.get(competencia) ?? 0;
     return {
-      receitaTotal: base.receitaTotal,
-      despesaFixa: base.despesaFixa,
-      despesaPontual: base.despesaPontual,
-      despesaTotal: base.despesaFixa + base.despesaPontual + gastos,
-      receitaPendente: base.receitaPendente,
-      despesaPendente: base.despesaPendente + gastos,
+      receitaTotal,
+      despesaFixa,
+      despesaPontual,
+      despesaTotal: despesaFixa + despesaPontual + gastos,
+      receitaPendente,
+      despesaPendente: despesaPendente + gastos,
       gastosDiarios: gastos,
     };
   }

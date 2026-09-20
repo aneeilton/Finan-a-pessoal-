@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { FluxoScreen } from "@/components/screens/FluxoScreen";
 import { PageError } from "@/components/ui/PageError";
-import { currentCompetencia } from "@/lib/format";
 import { loadContaPadrao } from "@/lib/contaPadrao";
 import type { Item, Lancamento } from "@/lib/types";
 
@@ -16,12 +15,11 @@ async function loadTipo(tipo: "receita" | "despesa") {
   if (itemsError) return { error: itemsError };
 
   const itemIds = (items ?? []).map((i) => i.id);
+  // Busca o historico completo (nao so o mes atual): um item fixo precisa
+  // do valor do ultimo mes lancado pra "puxar" pra frente em meses futuros
+  // sem lancamento proprio (ver lib/projection.valoresEfetivosPorItem).
   const { data: lancamentos, error: lancError } = itemIds.length
-    ? await supabase
-        .from("lancamentos")
-        .select("*")
-        .eq("competencia", currentCompetencia())
-        .in("item_id", itemIds)
+    ? await supabase.from("lancamentos").select("*").in("item_id", itemIds)
     : { data: [], error: null };
 
   if (lancError) return { error: lancError };
