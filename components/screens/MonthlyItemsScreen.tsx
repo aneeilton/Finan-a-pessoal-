@@ -149,9 +149,13 @@ export function MonthlyItemsScreen({
   );
 
   function isDirty(item: Item) {
+    // Compara contra o valor VIGENTE (real ou herdado do ultimo mes), nao
+    // so contra a linha real deste mes -- senao todo item fixo aparecia
+    // como "precisa salvar" so por nao ter lancamento proprio ainda neste
+    // mes, mesmo repetindo exatamente o valor de sempre.
     const draft = drafts[item.id] ?? "";
-    const saved = lancamentos[item.id]?.valor ?? 0;
-    return Number(draft || 0) !== Number(saved);
+    const vigente = efetivos.get(item.id)?.valor ?? 0;
+    return Number(draft || 0) !== vigente;
   }
 
   function closeForm() {
@@ -435,7 +439,7 @@ export function MonthlyItemsScreen({
         </div>
         {inferido && (
           <p className="mt-1.5 text-[11px] text-ink-400">
-            Repetindo o valor do último mês lançado · toque em Salvar pra confirmar em {monthLabel(competencia)}
+            Repete automaticamente o valor do último mês · só mexa se o valor mudar
           </p>
         )}
         {saveErrors[item.id] && (
