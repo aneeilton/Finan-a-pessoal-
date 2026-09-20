@@ -5,40 +5,46 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // "Jade" -- verde-esmeralda profundo, tom autoral (não é o teal
-        // padrão do Tailwind): remete a crescimento/confiança sem soar
-        // gritante feito app-brinquedo.
+        // Paleta "Aurora" -- baseada na paleta de marca fornecida (Indigo,
+        // Watermelon, Golden Pollen, Turquoise, Jungle Green). Cada cor
+        // mantém o hue exato do swatch original num stop "de identidade"
+        // (o mais claro/vívido, usado em ícones, bordas e fundos), e usa um
+        // tom mais escuro da MESMA família em stops que carregam texto ou
+        // fundo sólido com texto branco em cima -- os tons originais do
+        // swatch, sozinhos, não passam em contraste AA para essas funções.
         brand: {
-          50: "#EFFBF7",
-          100: "#D9F3EA",
-          200: "#B3E7D6",
-          300: "#82D3BC",
-          400: "#52BB9F",
-          500: "#2FA084",
-          600: "#1F8570",
-          700: "#17685A",
-          800: "#144F47",
-          900: "#0F3B36",
+          50: "#F0FAF5",
+          100: "#DBF5EA",
+          200: "#ABEDD0",
+          300: "#6CEAB3",
+          400: "#30E898",
+          500: "#0EAD69", // Jungle Green (swatch exato)
+          600: "#0F8753", // botões/links -- AA c/ texto branco
+          700: "#0D7749", // texto sobre fundo claro -- AA
+          800: "#0F5738",
+          900: "#0C3B27",
         },
-        // alerta/despesa: terracota-vermelho quente, evita o rosa neon
+        // alerta/despesa: Watermelon
         coral: {
-          400: "#F0897C",
-          500: "#E15D4C",
+          400: "#F07590", // decorativo (bordas, ícones)
+          500: "#E91644", // texto/fundo -- AA
         },
-        // pendências: ocre amarelado, mais terroso que amber puro
+        // pendências: Golden Pollen
         sun: {
-          400: "#EFB35C",
-          500: "#D6912A",
+          400: "#FFD23F", // decorativo (swatch exato)
+          500: "#917108", // texto -- AA (o amarelo puro não passa em contraste)
         },
-        // investimentos: ameixa/violeta profundo
+        // investimentos: Indigo
         grape: {
-          400: "#A78BDB",
-          500: "#7B5BB8",
+          400: "#C874E7", // decorativo
+          500: "#540D6E", // swatch exato -- já tem ótimo contraste como texto
+          600: "#8E20B6", // tom médio p/ gráficos (barras, etc.)
+          900: "#290836", // fim escuro de gradiente
         },
-        // contas/informativo: azul-aço, menos ciano-neon
+        // contas/informativo: Turquoise
         sky: {
-          400: "#6FAFCB",
-          500: "#3A85A8",
+          400: "#3BCEAC", // decorativo (swatch exato)
+          500: "#1C856C", // texto -- AA (o turquesa puro não passa em contraste)
         },
         // neutro com leve tom esverdeado (não é slate azulado padrão)
         ink: {
@@ -67,7 +73,7 @@ const config: Config = {
       },
       boxShadow: {
         card: "0 1px 2px -1px rgba(18, 25, 23, 0.06), 0 4px 16px -6px rgba(18, 25, 23, 0.10)",
-        pop: "0 10px 28px -8px rgba(23, 104, 90, 0.4)",
+        pop: "0 10px 28px -8px rgba(13, 119, 73, 0.4)",
       },
       keyframes: {
         "pop-in": {

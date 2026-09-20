@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { Sora } from "next/font/google";
 import "./globals.css";
 
-const sans = Plus_Jakarta_Sans({
+const sans = Sora({
   subsets: ["latin"],
   variable: "--font-sans",
   weight: ["500", "600", "700", "800"],
@@ -18,7 +18,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#17685A",
+  themeColor: "#0D7749",
 };
 
 export default function RootLayout({

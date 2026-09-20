@@ -47,7 +47,7 @@ export function SemestreScreen({
       <TopHeader icon={CalendarRange} title="Semestre" subtitle="Próximos 6 meses" />
 
       <div className="space-y-4 px-4 pt-1">
-        <Card className="bg-gradient-to-br from-grape-500 to-[#4A3876] text-white">
+        <Card className="bg-gradient-to-br from-grape-500 to-grape-900 text-white">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70">
             Saldo previsto em {monthLabel(series[series.length - 1]?.competencia ?? "")}
           </p>
@@ -87,7 +87,7 @@ export function SemestreScreen({
                 />
                 <YAxis hide />
                 <Tooltip formatter={(value: number) => formatMoney(value)} />
-                <Bar dataKey="saldo" radius={[8, 8, 8, 8]} fill="#7B5BB8" />
+                <Bar dataKey="saldo" radius={[8, 8, 8, 8]} fill="#8E20B6" />
               </BarChart>
             </ResponsiveContainer>
           </div>

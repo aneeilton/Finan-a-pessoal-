@@ -188,8 +188,8 @@ export function DashboardScreen({
   }
 
   const chartData = [
-    { name: "Receitas", valor: mes.receitaTotal, fill: "#2FA084" },
-    { name: "Despesas", valor: mes.despesaTotal, fill: "#E15D4C" },
+    { name: "Receitas", valor: mes.receitaTotal, fill: "#0EAD69" },
+    { name: "Despesas", valor: mes.despesaTotal, fill: "#E91644" },
   ];
   const saldoMes = mes.receitaTotal - mes.despesaTotal;
 
