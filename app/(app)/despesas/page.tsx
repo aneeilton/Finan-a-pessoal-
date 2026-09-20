@@ -4,12 +4,12 @@ import { PageError } from "@/components/ui/PageError";
 import { currentCompetencia } from "@/lib/format";
 import { loadContaPadrao } from "@/lib/contaPadrao";
 
-export default async function FixasPage() {
+export default async function DespesasPage() {
   const supabase = createClient();
   const { data: items, error: itemsError } = await supabase
     .from("items")
     .select("*")
-    .eq("tipo", "fixa")
+    .eq("tipo", "despesa")
     .order("created_at", { ascending: true });
 
   if (itemsError) return <PageError error={itemsError} />;
@@ -29,9 +29,9 @@ export default async function FixasPage() {
 
   return (
     <MonthlyItemsScreen
-      tipo="fixa"
-      title="Contas fixas"
-      tone="sun"
+      tipo="despesa"
+      title="Despesas"
+      tone="coral"
       valueDoneLabel="Pago"
       showDia={true}
       showExpectativa={false}

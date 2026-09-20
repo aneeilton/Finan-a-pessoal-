@@ -124,14 +124,17 @@ async function main() {
     console.log(`✔ ${backup.dados.bens.length} bens importados`);
   }
 
-  // ---------- items recorrentes (receitas / cartoes / fixas) ----------
+  // ---------- items recorrentes (receitas / despesas) ----------
+  // No backup antigo, cartoes e contas fixas eram grupos separados; no schema
+  // atual os dois viram tipo "despesa" (fixo=true, ja que sempre repetiam
+  // todo mes nesse formato antigo).
   await importGroup(supabase, userId, backup.dados.receitas, "receita", competenciaFromIndex, (idx, id) =>
     isMarked(backup, ["rec", idx, id], [id, idx])
   );
-  await importGroup(supabase, userId, backup.dados.cartoes, "cartao", competenciaFromIndex, (idx, id) =>
+  await importGroup(supabase, userId, backup.dados.cartoes, "despesa", competenciaFromIndex, (idx, id) =>
     isMarked(backup, ["cartao", idx, id], [id, idx])
   );
-  await importGroup(supabase, userId, backup.dados.fixas, "fixa", competenciaFromIndex, (idx, id) =>
+  await importGroup(supabase, userId, backup.dados.fixas, "despesa", competenciaFromIndex, (idx, id) =>
     isMarked(backup, ["fixa", idx, id], [id, idx])
   );
 
@@ -148,7 +151,7 @@ async function importGroup(
   supabase: ReturnType<typeof createClient>,
   userId: string,
   list: BackupItem[] | undefined,
-  tipo: "receita" | "cartao" | "fixa",
+  tipo: "receita" | "despesa",
   competenciaFromIndex: (idx: number) => string,
   isPago: (idx: number, id: string) => boolean
 ) {

@@ -26,7 +26,7 @@ export type Bem = {
   created_at: string;
 };
 
-export type ItemTipo = "receita" | "cartao" | "fixa";
+export type ItemTipo = "receita" | "despesa";
 
 export type Item = {
   id: string;
@@ -35,6 +35,8 @@ export type Item = {
   nome: string;
   dia_vencimento: number | null;
   expectativa: boolean;
+  fixo: boolean;
+  competencia_unica: string | null;
   created_at: string;
 };
 

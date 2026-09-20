@@ -5,8 +5,8 @@ export type MonthProjection = {
   competencia: string;
   receitaTotal: number;
   despesaTotal: number;
-  despesaCartao: number;
   despesaFixa: number;
+  despesaPontual: number;
   receitaPendente: number;
   despesaPendente: number;
   gastosDiarios: number;
@@ -17,8 +17,8 @@ export type MonthProjection = {
 
 type MesBucket = {
   receitaTotal: number;
-  despesaCartao: number;
   despesaFixa: number;
+  despesaPontual: number;
   receitaPendente: number;
   despesaPendente: number;
 };
@@ -55,8 +55,8 @@ export function buildMonthlyProjection({
     if (!porMes.has(mes)) {
       porMes.set(mes, {
         receitaTotal: 0,
-        despesaCartao: 0,
         despesaFixa: 0,
+        despesaPontual: 0,
         receitaPendente: 0,
         despesaPendente: 0,
       });
@@ -73,8 +73,8 @@ export function buildMonthlyProjection({
       bucket.receitaTotal += valor;
       if (!l.pago) bucket.receitaPendente += valor;
     } else {
-      if (item.tipo === "cartao") bucket.despesaCartao += valor;
-      else bucket.despesaFixa += valor;
+      if (item.fixo) bucket.despesaFixa += valor;
+      else bucket.despesaPontual += valor;
       if (!l.pago) bucket.despesaPendente += valor;
     }
   }
@@ -88,17 +88,17 @@ export function buildMonthlyProjection({
   function dadosDoMes(competencia: string) {
     const base = porMes.get(competencia) ?? {
       receitaTotal: 0,
-      despesaCartao: 0,
       despesaFixa: 0,
+      despesaPontual: 0,
       receitaPendente: 0,
       despesaPendente: 0,
     };
     const gastos = gastosPorMes.get(competencia) ?? 0;
     return {
       receitaTotal: base.receitaTotal,
-      despesaCartao: base.despesaCartao,
       despesaFixa: base.despesaFixa,
-      despesaTotal: base.despesaCartao + base.despesaFixa + gastos,
+      despesaPontual: base.despesaPontual,
+      despesaTotal: base.despesaFixa + base.despesaPontual + gastos,
       receitaPendente: base.receitaPendente,
       despesaPendente: base.despesaPendente + gastos,
       gastosDiarios: gastos,

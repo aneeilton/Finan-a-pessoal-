@@ -4,12 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   ChevronRight,
-  CreditCard,
   FileWarning,
   Gem,
-  Repeat,
   Sparkles,
-  TrendingUp,
   type LucideIcon,
 } from "lucide-react";
 import { TopHeader } from "@/components/TopHeader";
@@ -17,9 +14,6 @@ import { Card } from "@/components/ui/Card";
 import { AccountSyncCard } from "@/components/screens/AccountSyncCard";
 
 const LINKS: { href: string; label: string; icon: LucideIcon; hint: string }[] = [
-  { href: "/cartoes", label: "Cartões", icon: CreditCard, hint: "Faturas mensais" },
-  { href: "/receitas", label: "Receitas", icon: TrendingUp, hint: "Fontes de renda" },
-  { href: "/fixas", label: "Contas fixas", icon: Repeat, hint: "Aluguel, escola, internet..." },
   { href: "/dividas", label: "Dívidas", icon: FileWarning, hint: "Curto e longo prazo" },
   { href: "/bens", label: "Patrimônio", icon: Gem, hint: "Bens e propriedades" },
 ];

@@ -90,13 +90,13 @@ export function DashboardScreen({
   const despesasDoMes = useMemo(
     () =>
       items
-        .filter((i) => i.tipo === "cartao" || i.tipo === "fixa")
+        .filter((i) => i.tipo === "despesa")
         .map((i) => {
           const lanc = lancamentos.find((l) => l.item_id === i.id && l.competencia === competencia);
           return {
             id: i.id,
             nome: i.nome,
-            tipo: i.tipo as "cartao" | "fixa",
+            fixo: i.fixo,
             dia: i.dia_vencimento,
             valor: Number(lanc?.valor ?? 0),
             pago: lanc?.pago ?? false,
@@ -199,11 +199,11 @@ export function DashboardScreen({
   }, [series]);
 
   const resumoSemestre = useMemo(() => {
-    const cartoes = proximoSemestre.reduce((s, m) => s + m.despesaCartao, 0);
     const fixas = proximoSemestre.reduce((s, m) => s + m.despesaFixa, 0);
+    const pontuais = proximoSemestre.reduce((s, m) => s + m.despesaPontual, 0);
     const receitas = proximoSemestre.reduce((s, m) => s + m.receitaTotal, 0);
-    const comprometimento = receitas > 0 ? ((cartoes + fixas) / receitas) * 100 : 0;
-    return { cartoes, fixas, receitas, comprometimento };
+    const comprometimento = receitas > 0 ? ((fixas + pontuais) / receitas) * 100 : 0;
+    return { fixas, pontuais, receitas, comprometimento };
   }, [proximoSemestre]);
 
   const comprometimentoTone =
@@ -299,17 +299,17 @@ export function DashboardScreen({
           </div>
           <div className="grid grid-cols-3 gap-2">
             <StatCard
-              icon={CreditCard}
-              label="Cartões"
-              value={formatMoney(resumoSemestre.cartoes)}
-              tone="coral"
-              compact
-            />
-            <StatCard
               icon={Repeat}
               label="Fixas"
               value={formatMoney(resumoSemestre.fixas)}
               tone="sun"
+              compact
+            />
+            <StatCard
+              icon={CreditCard}
+              label="Pontuais"
+              value={formatMoney(resumoSemestre.pontuais)}
+              tone="coral"
               compact
             />
             <StatCard
@@ -324,7 +324,7 @@ export function DashboardScreen({
             <div>
               <p className={`text-xs font-bold ${comprometimentoTone.text}`}>Comprometimento de renda</p>
               <p className="text-[11px] text-ink-500">
-                (cartões + contas fixas) ÷ créditos previstos nos próx. 6 meses
+                (despesas fixas + pontuais) ÷ créditos previstos nos próx. 6 meses
               </p>
             </div>
             <p className={`text-xl font-extrabold [font-variant-numeric:tabular-nums] ${comprometimentoTone.text}`}>
@@ -384,13 +384,13 @@ export function DashboardScreen({
                 <div className="space-y-2">
                   <p className="px-1 text-[11px] font-bold uppercase tracking-wide text-ink-400">A pagar</p>
                   {despesasDoMes.map((v) => {
-                    const VencIcon = v.tipo === "cartao" ? CreditCard : Repeat;
+                    const VencIcon = v.fixo ? Repeat : CreditCard;
                     return (
                       <Card key={v.id} className="flex items-center justify-between gap-2">
                         <div className="flex min-w-0 items-center gap-3">
                           <span
                             className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl ${
-                              v.tipo === "cartao" ? "bg-coral-500/10 text-coral-500" : "bg-sun-500/10 text-sun-500"
+                              v.fixo ? "bg-sun-500/10 text-sun-500" : "bg-coral-500/10 text-coral-500"
                             }`}
                           >
                             <VencIcon size={16} strokeWidth={2} />

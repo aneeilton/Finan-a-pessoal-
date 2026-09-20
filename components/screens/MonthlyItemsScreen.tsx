@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Check, CreditCard, Pencil, Repeat, TrendingUp, X } from "lucide-react";
+import { Check, CreditCard, Pencil, Repeat, TrendingUp, Wallet, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { TopHeader } from "@/components/TopHeader";
 import { Card, EmptyState } from "@/components/ui/Card";
@@ -25,9 +25,13 @@ const TONE_CLASSES: Record<Tone, { chip: string; value: string; dash: string }> 
 // componente nao atravessa a fronteira server/client de forma serializavel.
 const TIPO_ICON = {
   receita: TrendingUp,
-  cartao: CreditCard,
-  fixa: Repeat,
+  despesa: Wallet,
 } as const;
+
+function itemIcon(tipo: ItemTipo, fixo: boolean) {
+  if (tipo === "receita") return TrendingUp;
+  return fixo ? Repeat : CreditCard;
+}
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
@@ -74,6 +78,7 @@ export function MonthlyItemsScreen({
   const [nome, setNome] = useState("");
   const [dia, setDia] = useState("");
   const [expectativa, setExpectativa] = useState(false);
+  const [fixo, setFixo] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -109,12 +114,24 @@ export function MonthlyItemsScreen({
     [lancamentos]
   );
 
-  const itemsOrdenados = useMemo(
-    () =>
-      [...items].sort(
-        (a, b) => Number(lancamentos[a.id]?.pago ?? false) - Number(lancamentos[b.id]?.pago ?? false)
-      ),
-    [items, lancamentos]
+  const itemsVisiveis = useMemo(
+    () => items.filter((i) => i.fixo || i.competencia_unica === competencia),
+    [items, competencia]
+  );
+
+  function ordenarPorPendente(lista: Item[]) {
+    return [...lista].sort(
+      (a, b) => Number(lancamentos[a.id]?.pago ?? false) - Number(lancamentos[b.id]?.pago ?? false)
+    );
+  }
+
+  const itemsFixos = useMemo(
+    () => ordenarPorPendente(itemsVisiveis.filter((i) => i.fixo)),
+    [itemsVisiveis, lancamentos]
+  );
+  const itemsPontuais = useMemo(
+    () => ordenarPorPendente(itemsVisiveis.filter((i) => !i.fixo)),
+    [itemsVisiveis, lancamentos]
   );
 
   function isDirty(item: Item) {
@@ -129,6 +146,7 @@ export function MonthlyItemsScreen({
     setNome("");
     setDia("");
     setExpectativa(false);
+    setFixo(false);
     setFormError(null);
   }
 
@@ -137,6 +155,7 @@ export function MonthlyItemsScreen({
     setNome(item.nome);
     setDia(item.dia_vencimento ? String(item.dia_vencimento) : "");
     setExpectativa(item.expectativa);
+    setFixo(item.fixo);
     setFormError(null);
     setOpen(true);
   }
@@ -154,6 +173,8 @@ export function MonthlyItemsScreen({
           nome: nome.trim(),
           dia_vencimento: showDia && dia ? Number(dia) : null,
           expectativa: showExpectativa ? expectativa : false,
+          fixo,
+          competencia_unica: fixo ? null : competencia,
         })
         .eq("id", editingId)
         .select()
@@ -176,6 +197,8 @@ export function MonthlyItemsScreen({
         nome: nome.trim(),
         dia_vencimento: showDia && dia ? Number(dia) : null,
         expectativa: showExpectativa ? expectativa : false,
+        fixo,
+        competencia_unica: fixo ? null : competencia,
       })
       .select()
       .single();
@@ -300,6 +323,102 @@ export function MonthlyItemsScreen({
     }
   }
 
+  function renderItem(item: Item) {
+    const lanc = lancamentos[item.id];
+    const dirty = isDirty(item);
+    const state = saveState[item.id] ?? "idle";
+    const ItemIcon = itemIcon(tipo, item.fixo);
+    return (
+      <Card key={item.id}>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl ${tones.chip}`}>
+              <ItemIcon size={16} strokeWidth={2} />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate font-semibold text-ink-800">{item.nome}</p>
+              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                {showDia && item.dia_vencimento && (
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${tones.chip}`}>
+                    Vence dia {item.dia_vencimento}
+                  </span>
+                )}
+                {showExpectativa && item.expectativa && (
+                  <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[10px] font-bold text-ink-500">
+                    Expectativa
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              onClick={() => startEdit(item)}
+              className="text-ink-400 hover:text-brand-600"
+              aria-label="Editar"
+            >
+              <Pencil size={15} strokeWidth={2.25} />
+            </button>
+            <button
+              onClick={() => removeItem(item.id)}
+              className="text-ink-400 hover:text-coral-500"
+              aria-label="Remover"
+            >
+              <X size={16} strokeWidth={2.25} />
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-3 flex items-center gap-2">
+          <input
+            type="number"
+            step="0.01"
+            inputMode="decimal"
+            value={drafts[item.id] ?? ""}
+            placeholder="0,00"
+            onChange={(e) =>
+              setDrafts((prev) => ({ ...prev, [item.id]: e.target.value }))
+            }
+            onKeyDown={(e) => {
+              if (e.key === "Enter") saveValor(item);
+            }}
+            className={`w-full rounded-xl border border-ink-100 bg-ink-50 px-3 py-2 text-sm font-bold outline-none focus:border-brand-400 ${tones.value}`}
+          />
+          <button
+            onClick={() => saveValor(item)}
+            disabled={!dirty || state === "saving"}
+            className={`flex shrink-0 items-center gap-1 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-bold transition ${
+              state === "saved"
+                ? "bg-brand-600 text-white"
+                : dirty
+                  ? "bg-ink-800 text-white"
+                  : "bg-ink-100 text-ink-400"
+            }`}
+          >
+            {state === "saved" && <Check size={13} strokeWidth={2.5} />}
+            {state === "saving" ? "Salvando..." : state === "saved" ? "Salvo" : "Salvar"}
+          </button>
+          <button
+            onClick={() => togglePago(item)}
+            className={`flex shrink-0 items-center gap-1 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-bold transition ${
+              lanc?.pago
+                ? "bg-brand-600 text-white"
+                : "bg-ink-100 text-ink-500"
+            }`}
+          >
+            {lanc?.pago && <Check size={13} strokeWidth={2.5} />}
+            {lanc?.pago ? valueDoneLabel : "Pendente"}
+          </button>
+        </div>
+        {saveErrors[item.id] && (
+          <p className="mt-1.5 text-xs font-medium text-coral-500">
+            Erro ao salvar: {saveErrors[item.id]}
+          </p>
+        )}
+      </Card>
+    );
+  }
+
   return (
     <div>
       <TopHeader
@@ -320,97 +439,22 @@ export function MonthlyItemsScreen({
 
         {items.length === 0 ? (
           <EmptyState icon={icon} title="Nada por aqui ainda" hint="Adicione o primeiro item" />
+        ) : itemsVisiveis.length === 0 ? (
+          <EmptyState icon={icon} title="Nada neste mês" hint="Itens pontuais só aparecem no mês em que ocorreram" />
         ) : (
-          <div className={`space-y-2 ${loading ? "opacity-60" : ""}`}>
-            {itemsOrdenados.map((item) => {
-              const lanc = lancamentos[item.id];
-              const dirty = isDirty(item);
-              const state = saveState[item.id] ?? "idle";
-              return (
-                <Card key={item.id}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate font-semibold text-ink-800">{item.nome}</p>
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                        {showDia && item.dia_vencimento && (
-                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${tones.chip}`}>
-                            Vence dia {item.dia_vencimento}
-                          </span>
-                        )}
-                        {showExpectativa && item.expectativa && (
-                          <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[10px] font-bold text-ink-500">
-                            Expectativa
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <button
-                        onClick={() => startEdit(item)}
-                        className="text-ink-400 hover:text-brand-600"
-                        aria-label="Editar"
-                      >
-                        <Pencil size={15} strokeWidth={2.25} />
-                      </button>
-                      <button
-                        onClick={() => removeItem(item.id)}
-                        className="text-ink-400 hover:text-coral-500"
-                        aria-label="Remover"
-                      >
-                        <X size={16} strokeWidth={2.25} />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex items-center gap-2">
-                    <input
-                      type="number"
-                      step="0.01"
-                      inputMode="decimal"
-                      value={drafts[item.id] ?? ""}
-                      placeholder="0,00"
-                      onChange={(e) =>
-                        setDrafts((prev) => ({ ...prev, [item.id]: e.target.value }))
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") saveValor(item);
-                      }}
-                      className={`w-full rounded-xl border border-ink-100 bg-ink-50 px-3 py-2 text-sm font-bold outline-none focus:border-brand-400 ${tones.value}`}
-                    />
-                    <button
-                      onClick={() => saveValor(item)}
-                      disabled={!dirty || state === "saving"}
-                      className={`flex shrink-0 items-center gap-1 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-bold transition ${
-                        state === "saved"
-                          ? "bg-brand-600 text-white"
-                          : dirty
-                            ? "bg-ink-800 text-white"
-                            : "bg-ink-100 text-ink-400"
-                      }`}
-                    >
-                      {state === "saved" && <Check size={13} strokeWidth={2.5} />}
-                      {state === "saving" ? "Salvando..." : state === "saved" ? "Salvo" : "Salvar"}
-                    </button>
-                    <button
-                      onClick={() => togglePago(item)}
-                      className={`flex shrink-0 items-center gap-1 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-bold transition ${
-                        lanc?.pago
-                          ? "bg-brand-600 text-white"
-                          : "bg-ink-100 text-ink-500"
-                      }`}
-                    >
-                      {lanc?.pago && <Check size={13} strokeWidth={2.5} />}
-                      {lanc?.pago ? valueDoneLabel : "Pendente"}
-                    </button>
-                  </div>
-                  {saveErrors[item.id] && (
-                    <p className="mt-1.5 text-xs font-medium text-coral-500">
-                      Erro ao salvar: {saveErrors[item.id]}
-                    </p>
-                  )}
-                </Card>
-              );
-            })}
+          <div className={`space-y-4 ${loading ? "opacity-60" : ""}`}>
+            {itemsFixos.length > 0 && (
+              <div className="space-y-2">
+                <p className="px-1 text-[11px] font-bold uppercase tracking-wide text-ink-400">Fixas</p>
+                {itemsFixos.map(renderItem)}
+              </div>
+            )}
+            {itemsPontuais.length > 0 && (
+              <div className="space-y-2">
+                <p className="px-1 text-[11px] font-bold uppercase tracking-wide text-ink-400">Pontuais</p>
+                {itemsPontuais.map(renderItem)}
+              </div>
+            )}
           </div>
         )}
 
@@ -436,6 +480,20 @@ export function MonthlyItemsScreen({
                 onChange={(e) => setDia(e.target.value)}
                 className="w-full rounded-2xl border border-ink-100 bg-ink-50 px-4 py-2.5 text-sm outline-none focus:border-brand-400"
               />
+            )}
+            <label className="flex items-center gap-2 px-1 text-sm text-ink-600">
+              <input
+                type="checkbox"
+                checked={fixo}
+                onChange={(e) => setFixo(e.target.checked)}
+                className="h-4 w-4 rounded accent-brand-600"
+              />
+              É {tipo === "receita" ? "uma receita" : "uma despesa"} fixa (repete todo mês)
+            </label>
+            {!fixo && (
+              <p className="px-1 text-[11px] text-ink-400">
+                Sem marcar, fica pontual: só aparece em {monthLabel(competencia)}.
+              </p>
             )}
             {showExpectativa && (
               <label className="flex items-center gap-2 px-1 text-sm text-ink-600">
