@@ -1,28 +1,29 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import {
   Activity,
+  ArrowDownRight,
+  ArrowUpRight,
   Check,
   CreditCard,
+  Eye,
+  EyeOff,
   FileWarning,
   Gem,
   PartyPopper,
   PiggyBank,
   Repeat,
   TrendingUp,
-  Wallet,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { TopHeader } from "@/components/TopHeader";
 import { Card, EmptyState } from "@/components/ui/Card";
 import { StatCard } from "@/components/ui/StatCard";
 import { DespesaDiariaCard } from "@/components/screens/DespesaDiariaCard";
 import { MonthSelector } from "@/components/ui/MonthSelector";
 import { buildMonthlyProjection, valoresEfetivosPorItem } from "@/lib/projection";
-import { currentCompetencia, formatMoney } from "@/lib/format";
+import { currentCompetencia, formatMoney, monthLabel } from "@/lib/format";
 import type { Conta, GastoDiario, Item, Lancamento } from "@/lib/types";
 
 export function DashboardScreen({
@@ -51,6 +52,34 @@ export function DashboardScreen({
   const [contas, setContas] = useState(initialContas);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [toggleErrors, setToggleErrors] = useState<Record<string, string>>({});
+  const [saudacao, setSaudacao] = useState("Olá");
+  const [oculto, setOculto] = useState(false);
+
+  useEffect(() => {
+    const hora = new Date().getHours();
+    setSaudacao(hora < 12 ? "Bom dia" : hora < 18 ? "Boa tarde" : "Boa noite");
+    try {
+      setOculto(localStorage.getItem("grana:oculto") === "1");
+    } catch {
+      // localStorage indisponível (ex: modo privado) -- mantém visível
+    }
+  }, []);
+
+  function alternarOculto() {
+    setOculto((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("grana:oculto", next ? "1" : "0");
+      } catch {
+        // sem persistência, só não lembra na próxima visita
+      }
+      return next;
+    });
+  }
+
+  function fmt(value: number) {
+    return oculto ? "R$ ••••" : formatMoney(value);
+  }
 
   const saldoContas = useMemo(
     () => contas.reduce((s, c) => s + Number(c.saldo_corrente), 0),
@@ -206,11 +235,12 @@ export function DashboardScreen({
     }
   }
 
-  const chartData = [
-    { name: "Receitas", valor: mes.receitaTotal, fill: "#0EAD69" },
-    { name: "Despesas", valor: mes.despesaTotal, fill: "#E91644" },
-  ];
   const saldoMes = mes.receitaTotal - mes.despesaTotal;
+
+  const ultimoDiaMes = useMemo(() => {
+    const [ano, numMes] = competencia.split("-").map(Number);
+    return new Date(ano, numMes, 0).getDate();
+  }, [competencia]);
 
   const proximoSemestre = useMemo(() => {
     const idxAtual = series.findIndex((s) => s.isCurrent);
@@ -291,72 +321,58 @@ export function DashboardScreen({
           ? { bg: "bg-sun-500/10", text: "text-sun-500", label: "Atenção" }
           : { bg: "bg-coral-500/10", text: "text-coral-500", label: "Crítica" };
 
+  const livreAposFaturas = saldoAtual - mesAtual.despesaPendente;
+
   return (
     <div>
-      <TopHeader title="Olá!" subtitle="Aqui está o resumo das suas finanças" />
+      <div className="flex items-center justify-between px-5 pb-3 pt-6">
+        <div>
+          <h1 className="text-xl font-extrabold tracking-tight text-ink-900">{saudacao}!</h1>
+          <p className="mt-0.5 text-sm text-ink-500">Aqui está o resumo das suas finanças</p>
+        </div>
+        <button
+          onClick={alternarOculto}
+          aria-label={oculto ? "Mostrar valores" : "Ocultar valores"}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-ink-100 text-ink-500"
+        >
+          {oculto ? <EyeOff size={18} strokeWidth={2} /> : <Eye size={18} strokeWidth={2} />}
+        </button>
+      </div>
 
       <div className="space-y-4 px-4 pt-1">
         <MonthSelector competencia={competencia} onChange={setCompetencia} />
 
         <Card className="bg-gradient-to-br from-brand-600 to-brand-900 text-white">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70">
-                {mes.isCurrent ? "Saldo atual" : "Saldo inicial do mês"}
-              </p>
-              <p className="mt-1 whitespace-nowrap text-lg font-extrabold leading-tight [font-variant-numeric:tabular-nums]">
-                {formatMoney(mes.saldoInicial)}
-              </p>
-            </div>
-            <div className="min-w-0 border-l border-white/15 pl-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70">
-                Previsão fim do mês
-              </p>
-              <p className="mt-1 whitespace-nowrap text-lg font-extrabold leading-tight [font-variant-numeric:tabular-nums]">
-                {formatMoney(mes.saldoFinal)}
-              </p>
-            </div>
-          </div>
-          <p className="mt-2 text-xs text-white/70">
-            {mes.isCurrent
-              ? "Saldo atual + receitas a receber − contas e cartões a pagar"
-              : "Saldo inicial do mês + receitas a receber − contas e cartões a pagar"}
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70">
+            Saldo nas contas
+          </p>
+          <p className="mt-1 text-3xl font-extrabold [font-variant-numeric:tabular-nums]">
+            {fmt(saldoAtual)}
+          </p>
+          <p
+            className={`mt-2 text-sm font-semibold ${
+              livreAposFaturas >= 0 ? "text-brand-200" : "text-coral-200"
+            }`}
+          >
+            {livreAposFaturas >= 0 ? "💸 " : "⚠️ "}
+            {fmt(livreAposFaturas)} livres depois de pagar as faturas
           </p>
         </Card>
 
-        <Card className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-700">
-            <Wallet size={20} strokeWidth={2} />
-          </span>
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
-              Sobra hoje
-            </p>
-            {mesAtual.saldoFinal >= 0 ? (
-              <p className="text-sm text-ink-600">
-                Dá pra gastar até{" "}
-                <span className="font-extrabold text-brand-700 [font-variant-numeric:tabular-nums]">
-                  {formatMoney(sobraHoje)}
-                </span>{" "}
-                por dia até o fim do mês sem mexer no que já está programado
-              </p>
-            ) : (
-              <p className="text-sm text-coral-500">
-                Previsão de fechar o mês em{" "}
-                <span className="font-extrabold [font-variant-numeric:tabular-nums]">
-                  {formatMoney(mesAtual.saldoFinal)}
-                </span>{" "}
-                — vale rever despesas antes de gastar mais
-              </p>
-            )}
-          </div>
+        <Card className="bg-coral-500/10">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-coral-500/80">
+            Faturas em aberto
+          </p>
+          <p className="mt-1 text-2xl font-extrabold text-coral-500 [font-variant-numeric:tabular-nums]">
+            {fmt(mesAtual.despesaPendente)}
+          </p>
         </Card>
 
         <div className="grid grid-cols-2 gap-3">
-          <StatCard icon={PiggyBank} label="Investido" value={formatMoney(totalAplicado)} tone="grape" />
-          <StatCard icon={FileWarning} label="Dívidas" value={formatMoney(totalDividas)} tone="coral" />
-          <StatCard icon={Gem} label="Bens" value={formatMoney(totalBens)} tone="sun" />
-          <StatCard icon={TrendingUp} label="Patrimônio líquido" value={formatMoney(patrimonioLiquido)} tone="sky" />
+          <StatCard icon={PiggyBank} label="Investido" value={fmt(totalAplicado)} tone="grape" />
+          <StatCard icon={FileWarning} label="Dívidas" value={fmt(totalDividas)} tone="coral" />
+          <StatCard icon={Gem} label="Bens" value={fmt(totalBens)} tone="sun" />
+          <StatCard icon={TrendingUp} label="Patrimônio líquido" value={fmt(patrimonioLiquido)} tone="sky" />
         </div>
 
         <Card>
@@ -405,33 +421,40 @@ export function DashboardScreen({
 
         <Card>
           <div className="mb-2 flex items-center justify-between">
-            <p className="text-sm font-bold text-ink-800">Este mês</p>
+            <p className="text-sm font-bold text-ink-800">Fluxo de {monthLabel(competencia).toLowerCase()}</p>
             <span
               className={`rounded-full px-2 py-0.5 text-xs font-extrabold [font-variant-numeric:tabular-nums] ${
                 saldoMes >= 0 ? "bg-brand-100 text-brand-700" : "bg-coral-500/10 text-coral-500"
               }`}
             >
               {saldoMes >= 0 ? "+" : ""}
-              {formatMoney(saldoMes)}
+              {fmt(saldoMes)}
             </span>
           </div>
-          <div className="h-32">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} barSize={44}>
-                <XAxis
-                  dataKey="name"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 12, fill: "#5F706C" }}
-                />
-                <Tooltip
-                  cursor={{ fill: "transparent" }}
-                  formatter={(value: number) => formatMoney(value)}
-                />
-                <Bar dataKey="valor" radius={[10, 10, 10, 10]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-2xl bg-brand-50 p-3">
+              <div className="flex items-center gap-1 text-[11px] font-semibold text-brand-700">
+                <ArrowDownRight size={13} strokeWidth={2.5} />
+                Entradas
+              </div>
+              <p className="mt-1 text-lg font-extrabold text-brand-700 [font-variant-numeric:tabular-nums]">
+                {fmt(mes.receitaTotal)}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-coral-500/10 p-3">
+              <div className="flex items-center gap-1 text-[11px] font-semibold text-coral-500">
+                <ArrowUpRight size={13} strokeWidth={2.5} />
+                Saídas
+              </div>
+              <p className="mt-1 text-lg font-extrabold text-coral-500 [font-variant-numeric:tabular-nums]">
+                {fmt(mes.despesaTotal)}
+              </p>
+            </div>
           </div>
+          <p className="mt-3 text-xs text-ink-500">
+            Saldo projetado até {ultimoDiaMes}/{monthLabel(competencia).toLowerCase()}:{" "}
+            <span className="font-bold text-ink-800">{fmt(mes.saldoFinal)}</span>
+          </p>
         </Card>
 
         <div>
@@ -445,21 +468,21 @@ export function DashboardScreen({
             <StatCard
               icon={Repeat}
               label="Fixas"
-              value={formatMoney(resumoSemestre.fixas)}
+              value={fmt(resumoSemestre.fixas)}
               tone="sun"
               compact
             />
             <StatCard
               icon={CreditCard}
               label="Pontuais"
-              value={formatMoney(resumoSemestre.pontuais)}
+              value={fmt(resumoSemestre.pontuais)}
               tone="coral"
               compact
             />
             <StatCard
               icon={TrendingUp}
               label="Crédito"
-              value={formatMoney(resumoSemestre.receitas)}
+              value={fmt(resumoSemestre.receitas)}
               tone="brand"
               compact
             />
@@ -509,7 +532,7 @@ export function DashboardScreen({
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <p className="font-extrabold text-ink-800 [font-variant-numeric:tabular-nums]">
-                          {formatMoney(r.valor)}
+                          {fmt(r.valor)}
                         </p>
                         <button
                           onClick={() => togglePago(r.id)}
@@ -554,7 +577,7 @@ export function DashboardScreen({
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
                           <p className="font-extrabold text-ink-800 [font-variant-numeric:tabular-nums]">
-                            {formatMoney(v.valor)}
+                            {fmt(v.valor)}
                           </p>
                           <button
                             onClick={() => togglePago(v.id)}
