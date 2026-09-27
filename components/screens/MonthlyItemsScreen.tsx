@@ -50,6 +50,8 @@ export function MonthlyItemsScreen({
   contaPadraoId,
   hideHeader,
   onContasChange,
+  onItemsChange,
+  onLancamentosChange,
 }: {
   tipo: ItemTipo;
   title: string;
@@ -63,6 +65,8 @@ export function MonthlyItemsScreen({
   contaPadraoId: string | null;
   hideHeader?: boolean;
   onContasChange?: (contas: Conta[]) => void;
+  onItemsChange?: (items: Item[]) => void;
+  onLancamentosChange?: (lancamentos: Lancamento[]) => void;
 }) {
   const supabase = createClient();
   const tones = TONE_CLASSES[tone];
@@ -95,6 +99,16 @@ export function MonthlyItemsScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contas]);
 
+  useEffect(() => {
+    onItemsChange?.(items);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
+
+  useEffect(() => {
+    onLancamentosChange?.(todosLancamentos);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [todosLancamentos]);
+
   // Lancamento real (linha propria) do mes selecionado -- controla o botao
   // de pago/pendente e o que "isDirty" compara contra.
   const lancamentos = useMemo(() => {
@@ -111,6 +125,15 @@ export function MonthlyItemsScreen({
   const efetivos = useMemo(
     () => valoresEfetivosPorItem(items, todosLancamentos, competencia),
     [items, todosLancamentos, competencia]
+  );
+
+  // Uso do limite do cartao e sempre em relacao ao mes atual de verdade,
+  // nao ao mes que o usuario esta navegando no seletor -- senao o
+  // percentual mudava so por folhear meses passados/futuros no Fluxo.
+  const competenciaHoje = useMemo(() => currentCompetencia(), []);
+  const efetivosHoje = useMemo(
+    () => valoresEfetivosPorItem(items, todosLancamentos, competenciaHoje),
+    [items, todosLancamentos, competenciaHoje]
   );
 
   useEffect(() => {
@@ -374,8 +397,8 @@ export function MonthlyItemsScreen({
     const state = saveState[item.id] ?? "idle";
     const ItemIcon = itemIcon(tipo, item.fixo, item.cartao);
     const inferido = !lanc && efetivos.get(item.id)?.inferido;
-    const valorAtual = efetivos.get(item.id)?.valor ?? 0;
-    const uso = item.cartao && item.limite ? Math.min(1, valorAtual / item.limite) : null;
+    const valorFaturaAtual = efetivosHoje.get(item.id)?.valor ?? 0;
+    const uso = item.cartao && item.limite ? Math.min(1, valorFaturaAtual / item.limite) : null;
     const usoCor =
       uso === null ? "" : uso >= 0.9 ? "bg-coral-500" : uso >= 0.7 ? "bg-sun-500" : "bg-brand-600";
     return (

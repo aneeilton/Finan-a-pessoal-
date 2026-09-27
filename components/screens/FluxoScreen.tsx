@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { TrendingUp, Wallet } from "lucide-react";
+import { CreditCard, TrendingUp, Wallet } from "lucide-react";
 import { TopHeader } from "@/components/TopHeader";
 import { MonthlyItemsScreen } from "@/components/screens/MonthlyItemsScreen";
+import { CartoesScreen } from "@/components/screens/CartoesScreen";
 import type { Conta, Item, Lancamento } from "@/lib/types";
 
 type TipoDados = { items: Item[]; lancamentos: Lancamento[] };
@@ -19,19 +20,26 @@ export function FluxoScreen({
   contas: Conta[];
   contaPadraoId: string | null;
 }) {
-  const [aba, setAba] = useState<"receita" | "despesa">("receita");
+  const [aba, setAba] = useState<"receita" | "despesa" | "cartoes">("receita");
   // Levantado aqui (em vez de cada MonthlyItemsScreen ter sua propria copia)
   // porque as duas telas ajustam o saldo da MESMA conta padrao ao marcar
   // pago/recebido -- com copias independentes, alternar de aba fazia uma
   // sobrescrever o ajuste de saldo que a outra acabou de salvar.
   const [contas, setContas] = useState(initialContas);
+  // Espelha items/lancamentos de despesa aqui so pra alimentar a aba
+  // "Cartoes" (resumo agregado) sem duplicar toda a logica de edicao --
+  // a fonte da verdade continua sendo o MonthlyItemsScreen de despesa.
+  const [despesaItems, setDespesaItems] = useState(despesa.items);
+  const [despesaLancamentos, setDespesaLancamentos] = useState(despesa.lancamentos);
 
   return (
     <div>
       <TopHeader
-        icon={aba === "receita" ? TrendingUp : Wallet}
+        icon={aba === "receita" ? TrendingUp : aba === "despesa" ? Wallet : CreditCard}
         title="Fluxo"
-        subtitle={aba === "receita" ? "Suas fontes de renda" : "Suas contas e cartões"}
+        subtitle={
+          aba === "receita" ? "Suas fontes de renda" : aba === "despesa" ? "Suas contas e cartões" : "Resumo dos seus cartões"
+        }
       />
 
       <div className="flex gap-1.5 px-4 pb-2">
@@ -50,6 +58,14 @@ export function FluxoScreen({
           }`}
         >
           Despesas
+        </button>
+        <button
+          onClick={() => setAba("cartoes")}
+          className={`flex-1 rounded-2xl py-2.5 text-sm font-bold transition ${
+            aba === "cartoes" ? "bg-grape-600 text-white shadow-card" : "bg-ink-100 text-ink-500"
+          }`}
+        >
+          Cartões
         </button>
       </div>
 
@@ -86,8 +102,13 @@ export function FluxoScreen({
           initialContas={contas}
           contaPadraoId={contaPadraoId}
           onContasChange={setContas}
+          onItemsChange={setDespesaItems}
+          onLancamentosChange={setDespesaLancamentos}
           hideHeader
         />
+      </div>
+      <div className={aba === "cartoes" ? "" : "hidden"}>
+        <CartoesScreen items={despesaItems} lancamentos={despesaLancamentos} />
       </div>
     </div>
   );
