@@ -14,6 +14,7 @@ import {
   Gem,
   PartyPopper,
   PiggyBank,
+  Receipt,
   Repeat,
   TrendingUp,
 } from "lucide-react";
@@ -144,6 +145,7 @@ export function DashboardScreen({
             id: i.id,
             nome: i.nome,
             fixo: i.fixo,
+            cartao: i.cartao,
             dia: i.dia_vencimento,
             valor: efetivo?.valor ?? 0,
             pago: efetivo?.pago ?? false,
@@ -554,7 +556,7 @@ export function DashboardScreen({
                 <div className="space-y-2">
                   <p className="px-1 text-[11px] font-bold uppercase tracking-wide text-ink-400">A pagar</p>
                   {despesasDoMes.map((v) => {
-                    const VencIcon = v.fixo ? Repeat : CreditCard;
+                    const VencIcon = v.cartao ? CreditCard : v.fixo ? Repeat : Receipt;
                     return (
                       <Card key={v.id} className="flex items-center justify-between gap-2">
                         <div className="flex min-w-0 items-center gap-3">

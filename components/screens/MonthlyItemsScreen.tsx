@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Check, CreditCard, Pencil, Repeat, TrendingUp, Wallet, X } from "lucide-react";
+import { Check, CreditCard, Pencil, Receipt, Repeat, TrendingUp, Wallet, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { TopHeader } from "@/components/TopHeader";
 import { Card, EmptyState } from "@/components/ui/Card";
@@ -29,9 +29,10 @@ const TIPO_ICON = {
   despesa: Wallet,
 } as const;
 
-function itemIcon(tipo: ItemTipo, fixo: boolean) {
+function itemIcon(tipo: ItemTipo, fixo: boolean, cartao: boolean) {
   if (tipo === "receita") return TrendingUp;
-  return fixo ? Repeat : CreditCard;
+  if (cartao) return CreditCard;
+  return fixo ? Repeat : Receipt;
 }
 
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -84,6 +85,8 @@ export function MonthlyItemsScreen({
   const [dia, setDia] = useState("");
   const [expectativa, setExpectativa] = useState(false);
   const [fixo, setFixo] = useState(false);
+  const [cartao, setCartao] = useState(false);
+  const [limite, setLimite] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -139,8 +142,12 @@ export function MonthlyItemsScreen({
     );
   }
 
+  const itemsCartoes = useMemo(
+    () => ordenarPorPendente(itemsVisiveis.filter((i) => i.cartao)),
+    [itemsVisiveis, lancamentos]
+  );
   const itemsFixos = useMemo(
-    () => ordenarPorPendente(itemsVisiveis.filter((i) => i.fixo)),
+    () => ordenarPorPendente(itemsVisiveis.filter((i) => i.fixo && !i.cartao)),
     [itemsVisiveis, lancamentos]
   );
   const itemsPontuais = useMemo(
@@ -165,6 +172,8 @@ export function MonthlyItemsScreen({
     setDia("");
     setExpectativa(false);
     setFixo(false);
+    setCartao(false);
+    setLimite("");
     setFormError(null);
   }
 
@@ -174,6 +183,8 @@ export function MonthlyItemsScreen({
     setDia(item.dia_vencimento ? String(item.dia_vencimento) : "");
     setExpectativa(item.expectativa);
     setFixo(item.fixo);
+    setCartao(item.cartao);
+    setLimite(item.limite != null ? String(item.limite) : "");
     setFormError(null);
     setOpen(true);
   }
@@ -184,6 +195,10 @@ export function MonthlyItemsScreen({
     setSaving(true);
     setFormError(null);
 
+    // Cartão sempre é fixo: você sempre tem fatura desse cartão, só o
+    // valor muda mês a mês.
+    const fixoFinal = cartao ? true : fixo;
+
     if (editingId) {
       const { data, error } = await supabase
         .from("items")
@@ -191,8 +206,10 @@ export function MonthlyItemsScreen({
           nome: nome.trim(),
           dia_vencimento: showDia && dia ? Number(dia) : null,
           expectativa: showExpectativa ? expectativa : false,
-          fixo,
-          competencia_unica: fixo ? null : competencia,
+          fixo: fixoFinal,
+          competencia_unica: fixoFinal ? null : competencia,
+          cartao: tipo === "despesa" ? cartao : false,
+          limite: tipo === "despesa" && cartao && limite ? Number(limite) : null,
         })
         .eq("id", editingId)
         .select()
@@ -215,8 +232,10 @@ export function MonthlyItemsScreen({
         nome: nome.trim(),
         dia_vencimento: showDia && dia ? Number(dia) : null,
         expectativa: showExpectativa ? expectativa : false,
-        fixo,
-        competencia_unica: fixo ? null : competencia,
+        fixo: fixoFinal,
+        competencia_unica: fixoFinal ? null : competencia,
+        cartao: tipo === "despesa" ? cartao : false,
+        limite: tipo === "despesa" && cartao && limite ? Number(limite) : null,
       })
       .select()
       .single();
@@ -353,8 +372,12 @@ export function MonthlyItemsScreen({
     const lanc = lancamentos[item.id];
     const dirty = isDirty(item);
     const state = saveState[item.id] ?? "idle";
-    const ItemIcon = itemIcon(tipo, item.fixo);
+    const ItemIcon = itemIcon(tipo, item.fixo, item.cartao);
     const inferido = !lanc && efetivos.get(item.id)?.inferido;
+    const valorAtual = efetivos.get(item.id)?.valor ?? 0;
+    const uso = item.cartao && item.limite ? Math.min(1, valorAtual / item.limite) : null;
+    const usoCor =
+      uso === null ? "" : uso >= 0.9 ? "bg-coral-500" : uso >= 0.7 ? "bg-sun-500" : "bg-brand-600";
     return (
       <Card key={item.id}>
         <div className="flex items-start justify-between gap-2">
@@ -437,6 +460,16 @@ export function MonthlyItemsScreen({
             {lanc?.pago ? valueDoneLabel : "Pendente"}
           </button>
         </div>
+        {uso !== null && (
+          <div className="mt-2">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink-100">
+              <div className={`h-full rounded-full ${usoCor}`} style={{ width: `${uso * 100}%` }} />
+            </div>
+            <p className="mt-1 text-[11px] text-ink-400">
+              {Math.round(uso * 100)}% do limite ({formatMoney(item.limite ?? 0)})
+            </p>
+          </div>
+        )}
         {inferido && (
           <p className="mt-1.5 text-[11px] text-ink-400">
             Repete automaticamente o valor do último mês · só mexa se o valor mudar
@@ -481,6 +514,12 @@ export function MonthlyItemsScreen({
           <EmptyState icon={icon} title="Nada neste mês" hint="Itens pontuais só aparecem no mês em que ocorreram" />
         ) : (
           <div className="space-y-4">
+            {itemsCartoes.length > 0 && (
+              <div className="space-y-2">
+                <p className="px-1 text-[11px] font-bold uppercase tracking-wide text-ink-400">Cartões</p>
+                {itemsCartoes.map(renderItem)}
+              </div>
+            )}
             {itemsFixos.length > 0 && (
               <div className="space-y-2">
                 <p className="px-1 text-[11px] font-bold uppercase tracking-wide text-ink-400">Fixas</p>
@@ -519,19 +558,52 @@ export function MonthlyItemsScreen({
                 className="w-full rounded-2xl border border-ink-100 bg-ink-50 px-4 py-2.5 text-sm outline-none focus:border-brand-400"
               />
             )}
+            {tipo === "despesa" && (
+              <>
+                <label className="flex items-center gap-2 px-1 text-sm text-ink-600">
+                  <input
+                    type="checkbox"
+                    checked={cartao}
+                    onChange={(e) => {
+                      setCartao(e.target.checked);
+                      if (e.target.checked) setFixo(true);
+                    }}
+                    className="h-4 w-4 rounded accent-brand-600"
+                  />
+                  É um cartão de crédito
+                </label>
+                {cartao && (
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Limite do cartão (opcional)"
+                    value={limite}
+                    onChange={(e) => setLimite(e.target.value)}
+                    className="w-full rounded-2xl border border-ink-100 bg-ink-50 px-4 py-2.5 text-sm outline-none focus:border-brand-400"
+                  />
+                )}
+              </>
+            )}
             <label className="flex items-center gap-2 px-1 text-sm text-ink-600">
               <input
                 type="checkbox"
                 checked={fixo}
+                disabled={cartao}
                 onChange={(e) => setFixo(e.target.checked)}
-                className="h-4 w-4 rounded accent-brand-600"
+                className="h-4 w-4 rounded accent-brand-600 disabled:opacity-50"
               />
               É {tipo === "receita" ? "uma receita" : "uma despesa"} fixa (repete todo mês)
             </label>
-            {!fixo && (
+            {cartao ? (
               <p className="px-1 text-[11px] text-ink-400">
-                Sem marcar, fica pontual: só aparece em {monthLabel(competencia)}.
+                Cartão é sempre fixo: você sempre tem fatura, só o valor muda todo mês.
               </p>
+            ) : (
+              !fixo && (
+                <p className="px-1 text-[11px] text-ink-400">
+                  Sem marcar, fica pontual: só aparece em {monthLabel(competencia)}.
+                </p>
+              )
             )}
             {showExpectativa && (
               <label className="flex items-center gap-2 px-1 text-sm text-ink-600">

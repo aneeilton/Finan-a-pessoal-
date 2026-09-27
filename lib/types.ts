@@ -37,6 +37,8 @@ export type Item = {
   expectativa: boolean;
   fixo: boolean;
   competencia_unica: string | null;
+  cartao: boolean;
+  limite: number | null;
   created_at: string;
 };
 
