@@ -323,7 +323,10 @@ export function DashboardScreen({
           ? { bg: "bg-sun-500/10", text: "text-sun-500", label: "Atenção" }
           : { bg: "bg-coral-500/10", text: "text-coral-500", label: "Crítica" };
 
-  const livreAposFaturas = saldoAtual - mesAtual.despesaPendente;
+  // Projecao do mes: soma tambem as receitas pendentes (ex: salario que
+  // ainda nao caiu), nao so as despesas -- senao parecia que o dinheiro
+  // que ainda vai entrar nao contava pra "sobra" do mes.
+  const livreAposFaturas = saldoAtual + mesAtual.receitaPendente - mesAtual.despesaPendente;
 
   return (
     <div>
@@ -357,7 +360,7 @@ export function DashboardScreen({
             }`}
           >
             {livreAposFaturas >= 0 ? "💸 " : "⚠️ "}
-            {fmt(livreAposFaturas)} livres depois de pagar as faturas
+            {fmt(livreAposFaturas)} previstos até o fim do mês
           </p>
         </Card>
 
