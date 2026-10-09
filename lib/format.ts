@@ -26,6 +26,11 @@ export function monthYearLabel(competencia: string): string {
   return label.replace(/^\w/, (c) => c.toUpperCase());
 }
 
+// Mês a partir do qual o app passou a ter lançamentos de verdade (base
+// zerada em out/2026). Meses anteriores não têm nenhum dado -- por isso
+// o seletor de mês não deixa navegar pra antes dele.
+export const MES_INICIAL = "2026-10-01";
+
 export function currentCompetencia(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;

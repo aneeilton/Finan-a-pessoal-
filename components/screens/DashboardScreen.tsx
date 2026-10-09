@@ -24,7 +24,7 @@ import { StatCard } from "@/components/ui/StatCard";
 import { DespesaDiariaCard } from "@/components/screens/DespesaDiariaCard";
 import { MonthSelector } from "@/components/ui/MonthSelector";
 import { buildMonthlyProjection, valoresEfetivosPorItem } from "@/lib/projection";
-import { currentCompetencia, formatMoney, monthLabel } from "@/lib/format";
+import { MES_INICIAL, currentCompetencia, formatMoney, monthLabel } from "@/lib/format";
 import type { Conta, GastoDiario, Item, Lancamento } from "@/lib/types";
 
 export function DashboardScreen({
@@ -345,7 +345,7 @@ export function DashboardScreen({
       </div>
 
       <div className="space-y-4 px-4 pt-1">
-        <MonthSelector competencia={competencia} onChange={setCompetencia} />
+        <MonthSelector competencia={competencia} onChange={setCompetencia} minCompetencia={MES_INICIAL} />
 
         <Card className="bg-gradient-to-br from-brand-600 to-brand-900 text-white">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70">

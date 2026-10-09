@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { TopHeader } from "@/components/TopHeader";
 import { Card, EmptyState } from "@/components/ui/Card";
 import { MonthSelector } from "@/components/ui/MonthSelector";
-import { currentCompetencia, formatMoney, monthLabel } from "@/lib/format";
+import { MES_INICIAL, currentCompetencia, formatMoney, monthLabel } from "@/lib/format";
 import { valoresEfetivosPorItem } from "@/lib/projection";
 import type { Conta, Item, ItemTipo, Lancamento } from "@/lib/types";
 
@@ -522,7 +522,7 @@ export function MonthlyItemsScreen({
       )}
 
       <div className="space-y-4 px-4 pt-1">
-        <MonthSelector competencia={competencia} onChange={setCompetencia} />
+        <MonthSelector competencia={competencia} onChange={setCompetencia} minCompetencia={MES_INICIAL} />
 
         {!contaPadraoId && (
           <p className="px-1 text-[11px] text-ink-400">

@@ -3,15 +3,19 @@ import { monthYearLabel, shiftCompetencia } from "@/lib/format";
 export function MonthSelector({
   competencia,
   onChange,
+  minCompetencia,
 }: {
   competencia: string;
   onChange: (competencia: string) => void;
+  minCompetencia?: string;
 }) {
+  const noPassado = !!minCompetencia && competencia <= minCompetencia;
   return (
     <div className="flex items-center justify-between rounded-2xl bg-white px-3 py-2 shadow-card">
       <button
         onClick={() => onChange(shiftCompetencia(competencia, -1))}
-        className="h-8 w-8 rounded-xl bg-ink-50 text-ink-500"
+        disabled={noPassado}
+        className="h-8 w-8 rounded-xl bg-ink-50 text-ink-500 disabled:opacity-30"
         aria-label="Mês anterior"
       >
         ‹
