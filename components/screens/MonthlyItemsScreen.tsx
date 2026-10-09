@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { TopHeader } from "@/components/TopHeader";
 import { Card, EmptyState } from "@/components/ui/Card";
 import { MonthSelector } from "@/components/ui/MonthSelector";
-import { MES_INICIAL, currentCompetencia, formatMoney, monthLabel } from "@/lib/format";
+import { MES_INICIAL, currentCompetencia, formatMoney, monthLabel, shiftCompetencia } from "@/lib/format";
 import { valoresEfetivosPorItem } from "@/lib/projection";
 import type { Conta, Item, ItemTipo, Lancamento } from "@/lib/types";
 
@@ -91,6 +91,7 @@ export function MonthlyItemsScreen({
   const [fixo, setFixo] = useState(false);
   const [cartao, setCartao] = useState(false);
   const [limite, setLimite] = useState("");
+  const [parcelas, setParcelas] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -154,9 +155,16 @@ export function MonthlyItemsScreen({
     return soma;
   }, [efetivos]);
 
+  // Um item parcelado (fixo=false, parcelas_total definido) so tem linha
+  // propria de lancamento nos meses do seu plano -- nao cai em "fixo"
+  // (nao repete pra sempre) nem em "competencia_unica" (nao e so 1 mes),
+  // entao precisa aparecer quando ha lancamento explicito pra esse mes.
   const itemsVisiveis = useMemo(
-    () => items.filter((i) => i.fixo || i.competencia_unica === competencia),
-    [items, competencia]
+    () =>
+      items.filter(
+        (i) => i.fixo || i.competencia_unica === competencia || lancamentos[i.id] !== undefined
+      ),
+    [items, competencia, lancamentos]
   );
 
   function ordenarPorPendente(lista: Item[]) {
@@ -173,8 +181,12 @@ export function MonthlyItemsScreen({
     () => ordenarPorPendente(itemsVisiveis.filter((i) => i.fixo && !i.cartao)),
     [itemsVisiveis, lancamentos]
   );
+  const itemsParcelados = useMemo(
+    () => ordenarPorPendente(itemsVisiveis.filter((i) => !i.fixo && i.parcelas_total)),
+    [itemsVisiveis, lancamentos]
+  );
   const itemsPontuais = useMemo(
-    () => ordenarPorPendente(itemsVisiveis.filter((i) => !i.fixo)),
+    () => ordenarPorPendente(itemsVisiveis.filter((i) => !i.fixo && !i.parcelas_total)),
     [itemsVisiveis, lancamentos]
   );
 
@@ -197,6 +209,7 @@ export function MonthlyItemsScreen({
     setFixo(false);
     setCartao(false);
     setLimite("");
+    setParcelas("");
     setFormError(null);
   }
 
@@ -208,6 +221,7 @@ export function MonthlyItemsScreen({
     setFixo(item.fixo);
     setCartao(item.cartao);
     setLimite(item.limite != null ? String(item.limite) : "");
+    setParcelas(item.parcelas_total != null ? String(item.parcelas_total) : "");
     setFormError(null);
     setOpen(true);
   }
@@ -221,6 +235,14 @@ export function MonthlyItemsScreen({
     // Cartão sempre é fixo: você sempre tem fatura desse cartão, só o
     // valor muda mês a mês.
     const fixoFinal = cartao ? true : fixo;
+    // Parcelado: numero de parcelas so faz sentido pra item nao-fixo e
+    // nao-cartao. competencia_unica continua apontando pro mes de
+    // criacao (garante que o item apareca pra lancar o 1o valor); os
+    // meses seguintes do plano aparecem via lancamento explicito, que
+    // vai sendo espelhado automaticamente ao salvar (ver saveValor e
+    // itemsVisiveis).
+    const parcelasFinal =
+      !fixoFinal && !cartao && parcelas && Number(parcelas) > 1 ? Number(parcelas) : null;
 
     if (editingId) {
       const { data, error } = await supabase
@@ -233,6 +255,7 @@ export function MonthlyItemsScreen({
           competencia_unica: fixoFinal ? null : competencia,
           cartao: tipo === "despesa" ? cartao : false,
           limite: tipo === "despesa" && cartao && limite ? Number(limite) : null,
+          parcelas_total: parcelasFinal,
         })
         .eq("id", editingId)
         .select()
@@ -259,6 +282,7 @@ export function MonthlyItemsScreen({
         competencia_unica: fixoFinal ? null : competencia,
         cartao: tipo === "despesa" ? cartao : false,
         limite: tipo === "despesa" && cartao && limite ? Number(limite) : null,
+        parcelas_total: parcelasFinal,
       })
       .select()
       .single();
@@ -301,21 +325,48 @@ export function MonthlyItemsScreen({
     }
 
     const existing = lancamentos[item.id];
-    const { data, error } = await supabase
-      .from("lancamentos")
-      .upsert(
-        {
-          id: existing?.id,
+    const linhas: {
+      id?: string;
+      item_id: string;
+      user_id: string;
+      competencia: string;
+      valor: number;
+      pago: boolean;
+    }[] = [
+      {
+        id: existing?.id,
+        item_id: item.id,
+        user_id: user.id,
+        competencia,
+        valor,
+        pago: existing?.pago ?? false,
+      },
+    ];
+
+    // Parcelado: espelha o mesmo valor nos proximos meses do plano,
+    // pulando qualquer mes que ja esteja marcado como pago (parcela
+    // encerrada, nao mexe mais nela).
+    if (item.parcelas_total && item.parcelas_total > 1) {
+      const porItem = new Map(todosLancamentos.filter((l) => l.item_id === item.id).map((l) => [l.competencia, l]));
+      for (let i = 1; i < item.parcelas_total; i++) {
+        const comp = shiftCompetencia(competencia, i);
+        const existenteFutura = porItem.get(comp);
+        if (existenteFutura?.pago) continue;
+        linhas.push({
+          id: existenteFutura?.id,
           item_id: item.id,
           user_id: user.id,
-          competencia,
+          competencia: comp,
           valor,
-          pago: existing?.pago ?? false,
-        },
-        { onConflict: "item_id,competencia" }
-      )
-      .select()
-      .single();
+          pago: false,
+        });
+      }
+    }
+
+    const { data, error } = await supabase
+      .from("lancamentos")
+      .upsert(linhas, { onConflict: "item_id,competencia" })
+      .select();
 
     if (error || !data) {
       setSaveState((prev) => ({ ...prev, [item.id]: "error" }));
@@ -323,8 +374,9 @@ export function MonthlyItemsScreen({
       return;
     }
 
-    upsertLocal(data as Lancamento);
-    setDrafts((prev) => ({ ...prev, [item.id]: String((data as Lancamento).valor) }));
+    for (const linha of data as Lancamento[]) upsertLocal(linha);
+    const salva = (data as Lancamento[]).find((l) => l.competencia === competencia);
+    setDrafts((prev) => ({ ...prev, [item.id]: String(salva?.valor ?? valor) }));
     setSaveState((prev) => ({ ...prev, [item.id]: "saved" }));
     setTimeout(() => {
       setSaveState((prev) => (prev[item.id] === "saved" ? { ...prev, [item.id]: "idle" } : prev));
@@ -419,6 +471,11 @@ export function MonthlyItemsScreen({
                 {showExpectativa && item.expectativa && (
                   <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[10px] font-bold text-ink-500">
                     Expectativa
+                  </span>
+                )}
+                {item.parcelas_total && (
+                  <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[10px] font-bold text-ink-500">
+                    {item.parcelas_total}x
                   </span>
                 )}
               </div>
@@ -549,6 +606,12 @@ export function MonthlyItemsScreen({
                 {itemsFixos.map(renderItem)}
               </div>
             )}
+            {itemsParcelados.length > 0 && (
+              <div className="space-y-2">
+                <p className="px-1 text-[11px] font-bold uppercase tracking-wide text-ink-400">Parceladas</p>
+                {itemsParcelados.map(renderItem)}
+              </div>
+            )}
             {itemsPontuais.length > 0 && (
               <div className="space-y-2">
                 <p className="px-1 text-[11px] font-bold uppercase tracking-wide text-ink-400">Pontuais</p>
@@ -617,16 +680,28 @@ export function MonthlyItemsScreen({
               />
               É {tipo === "receita" ? "uma receita" : "uma despesa"} fixa (repete todo mês)
             </label>
+            {!cartao && !fixo && (
+              <input
+                type="number"
+                min={2}
+                placeholder="Número de parcelas (opcional)"
+                value={parcelas}
+                onChange={(e) => setParcelas(e.target.value)}
+                className="w-full rounded-2xl border border-ink-100 bg-ink-50 px-4 py-2.5 text-sm outline-none focus:border-brand-400"
+              />
+            )}
             {cartao ? (
               <p className="px-1 text-[11px] text-ink-400">
                 Cartão é sempre fixo: você sempre tem fatura, só o valor muda todo mês.
               </p>
+            ) : fixo ? null : parcelas && Number(parcelas) > 1 ? (
+              <p className="px-1 text-[11px] text-ink-400">
+                Ao salvar o valor, ele se repete automaticamente pelas próximas {Number(parcelas) - 1} mês(es).
+              </p>
             ) : (
-              !fixo && (
-                <p className="px-1 text-[11px] text-ink-400">
-                  Sem marcar, fica pontual: só aparece em {monthLabel(competencia)}.
-                </p>
-              )
+              <p className="px-1 text-[11px] text-ink-400">
+                Sem marcar, fica pontual: só aparece em {monthLabel(competencia)}.
+              </p>
             )}
             {showExpectativa && (
               <label className="flex items-center gap-2 px-1 text-sm text-ink-600">

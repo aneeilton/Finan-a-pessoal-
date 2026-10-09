@@ -39,6 +39,7 @@ export type Item = {
   competencia_unica: string | null;
   cartao: boolean;
   limite: number | null;
+  parcelas_total: number | null;
   created_at: string;
 };
 
